@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <title>Foundations AR</title>
+
+  
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
+
+
+  <style>
+
+    /* 1. Force the background to be transparent so the video shows through */
+
+    html, body { 
+
+      margin: 0; padding: 0; width: 100%; height: 100%; 
+
+      overflow: hidden; 
+
+      background: transparent !important; 
+
+    }
+
+    
+
+    #overlay {
+
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+
+      background: #000; color: white; display: flex; flex-direction: column;
+
+      justify-content: center; align-items: center; z-index: 9999; font-family: sans-serif;
+
+    }
+
+    
+
+    #start-btn { 
+
+      padding: 18px 40px; font-size: 18px; background: #fff; color: #000; 
+
+      border: none; border-radius: 4px; cursor: pointer; font-weight: bold; 
+
+      text-transform: uppercase; 
+
+    }
+
+
+
+    #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
+
+
+
+    /* Hide the default MindAR UI that can cause white borders */
+
+    .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
+
+  </style>
+
+</head>
+
+<body>
+
+
+
+  <div id="overlay">
+
+    <h1 style="letter-spacing: 3px; font-weight: 300; margin-bottom: 25px;">FOUNDATIONS</h1>
+
+    <img src="https://dddanimation.github.io/3d/enslaved.jpg" id="marker-preview">
+
+    <button id="start-btn">Enter Experience</button>
+
+  </div>
+
+
+
+  <a-scene 
+
+    mindar-image="imageTargetSrc: https://dddanimation.github.io/3d/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;" 
+
+    color-space="sRGB" 
+
+    renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
+
+    vr-mode-ui="enabled: false" 
+
+    device-orientation-permission-ui="enabled: false">
+
+    
+
+    <a-assets>
+
+      <a-asset-item id="sculpture" src="https://dddanimation.github.io/3d/enslaved.glb"></a-asset-item>
+
+    </a-assets>
+
+
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+
+
+    <a-light type="ambient" intensity="0.5"></a-light>
+
+    <a-light type="directional" position="1 2 1" intensity="0.7"></a-light>
+
+
+
+    <a-entity mindar-image-target="targetIndex: 0">
+
+      <a-gltf-model 
+
+        src="#sculpture" 
+
+        position="0 0.0 0.0" 
+
+        scale="0.17 0.17 0.17"
+
+        rotation="90 0 0"
+
+        animation-mixer>
+
+      </a-gltf-model>
+
+    </a-entity>
+
+  </a-scene>
+
+
+
+  <script>
+
+    const startBtn = document.getElementById('start-btn');
+
+    const overlay = document.getElementById('overlay');
+
+    const sceneEl = document.querySelector('a-scene');
+
+
+
+    startBtn.addEventListener('click', () => {
+
+      // Force the background of the body to transparent immediately on click
+
+      document.body.style.backgroundColor = "transparent";
+
+      sceneEl.systems["mindar-image-system"].start(); 
+
+    });
+
+
+
+    sceneEl.addEventListener("arReady", () => {
+
+      overlay.style.display = "none";
+
+    });
+
+
+
+    // Final insurance: if the background is still black, this finds the video and pulls it forward
+
+    sceneEl.addEventListener("targetFound", () => {
+
+        document.body.style.backgroundColor = "transparent";
+
+    });
+
+  </script>
+
+</body>
+
+</html>
