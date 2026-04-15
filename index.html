@@ -1,137 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>EBONY AR Experience</title>
-  
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
-
-  <style>
-    body { margin: 0; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #000; }
-
-    /* The Initial Landing Screen */
-    #overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: #000; color: white;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      z-index: 100; text-align: center;
-    }
-
-    #start-btn { 
-      padding: 18px 40px; font-size: 1rem; background: #fff; color: #000; 
-      border: none; border-radius: 5px; cursor: pointer; font-weight: bold; 
-      text-transform: uppercase; letter-spacing: 2px;
-    }
-
-    /* Bottom UI Button Container */
-    #ui-buttons {
-      position: fixed;
-      bottom: 40px; 
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 15px;
-      z-index: 50;
-      width: 90%;
-      justify-content: center;
-      display: none; 
-    }
-
-    .action-btn {
-      flex: 1;
-      max-width: 160px;
-      padding: 14px 10px;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      border-radius: 8px;
-      text-decoration: none;
-      text-align: center;
-      font-size: 0.85rem;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-
-    .action-btn:active { background: rgba(255, 255, 255, 0.3); }
-
-    #scanning-overlay {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.1); z-index: 5; pointer-events: none;
-      border: 10px solid rgba(255,255,255,0.2); box-sizing: border-box;
-    }
-
-    .hidden { display: none !important; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Portfolio Scene</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 </head>
-<body>
+<body style="margin: 0; overflow: hidden;">
 
-  <div id="overlay">
-    <h1 style="letter-spacing: 8px; font-weight: 200; margin-bottom: 10px;">EBONY</h1>
-    <p style="opacity: 0.6; margin-bottom: 25px; font-size: 0.8rem;">AIM CAMERA AT MURAL</p>
-    <button id="start-btn">Begin Experience</button>
-  </div>
+    <a-scene vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+        
+        <a-sky color="#ECECEC"></a-sky>
 
-  <div id="ui-buttons">
-    <a href="https://www.instagram.com/qrcky/" target="_blank" class="action-btn">Instagram</a>
-    <a href="https://www.qrcky.net/prints/" target="_blank" class="action-btn" style="background: #fff; color: #000;">Buy Prints</a>
-  </div>
+        <a-assets>
+            <a-asset-item id="myModel" src="model.glb"></a-asset-item>
+        </a-assets>
 
-  <div id="scanning-overlay"></div>
+        <a-entity gltf-model="#myModel" 
+                  position="0 1 -3" 
+                  scale="1 1 1"
+                  animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
+        </a-entity>
 
-  <a-scene 
-    mindar-image="imageTargetSrc: https://dddanimation.github.io/3d/targets.mind; autoStart: false; uiScanning: no; uiLoading: no;" 
-    color-space="sRGB" 
-    renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
-    vr-mode-ui="enabled: false" 
-    device-orientation-permission-ui="enabled: false">
-    
-    <a-assets>
-      <a-asset-item id="ebony-model" src="https://dddanimation.github.io/3d/enslaved.glb"></a-asset-item>
-    </a-assets>
+        <a-light type="ambient" color="#BBB"></a-light>
+        <a-light type="directional" color="#FFF" intensity="0.6" position="-1 1 1"></a-light>
 
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    </a-scene>
 
-    <a-light type="ambient" intensity="0.7"></a-light>
-    <a-light type="directional" position="1 2 1" intensity="0.8"></a-light>
-
-    <a-entity mindar-image-target="targetIndex: 0">
-      <a-gltf-model 
-        src="#ebony-model" 
-        position="0 0 0.1" 
-        scale="0.2 0.2 0.2"
-        rotation="90 0 0"
-        animation-mixer>
-      </a-gltf-model>
-    </a-entity>
-  </a-scene>
-
-  <script>
-    const startBtn = document.getElementById('start-btn');
-    const overlay = document.getElementById('overlay');
-    const uiButtons = document.getElementById('ui-buttons');
-    const scanOverlay = document.getElementById('scanning-overlay');
-    const sceneEl = document.querySelector('a-scene');
-
-    startBtn.addEventListener('click', () => {
-      overlay.classList.add('hidden');
-      uiButtons.style.display = 'flex'; 
-      scanOverlay.style.display = 'block';
-      sceneEl.systems["mindar-image-system"].start();
-    });
-
-    sceneEl.addEventListener("targetFound", () => {
-      scanOverlay.classList.add('hidden');
-    });
-
-    sceneEl.addEventListener("targetLost", () => {
-      scanOverlay.classList.remove('hidden');
-    });
-  </script>
 </body>
 </html>
