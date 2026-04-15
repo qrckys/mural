@@ -1,185 +1,136 @@
 <!DOCTYPE html>
-
-<html>
-
+<html lang="en">
 <head>
-
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-
-  <title>Foundations AR</title>
-
+  <title>EBONY AR Experience</title>
   
-
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
-
-
   <style>
+    body { margin: 0; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #000; }
 
-    /* 1. Force the background to be transparent so the video shows through */
-
-    html, body { 
-
-      margin: 0; padding: 0; width: 100%; height: 100%; 
-
-      overflow: hidden; 
-
-      background: transparent !important; 
-
-    }
-
-    
-
+    /* The Initial Landing Screen */
     #overlay {
-
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-
-      background: #000; color: white; display: flex; flex-direction: column;
-
-      justify-content: center; align-items: center; z-index: 9999; font-family: sans-serif;
-
+      background: #000; color: white;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      z-index: 100; text-align: center;
     }
-
-    
 
     #start-btn { 
-
-      padding: 18px 40px; font-size: 18px; background: #fff; color: #000; 
-
-      border: none; border-radius: 4px; cursor: pointer; font-weight: bold; 
-
-      text-transform: uppercase; 
-
+      padding: 18px 40px; font-size: 1rem; background: #fff; color: #000; 
+      border: none; border-radius: 5px; cursor: pointer; font-weight: bold; 
+      text-transform: uppercase; letter-spacing: 2px;
     }
 
+    /* Bottom UI Button Container */
+    #ui-buttons {
+      position: fixed;
+      bottom: 30px; /* Distance from bottom */
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 50; /* Above the AR but below the initial overlay */
+      width: 90%;
+      justify-content: center;
+      display: none; /* Hidden until the experience starts */
+    }
 
+    .action-btn {
+      flex: 1;
+      max-width: 160px;
+      padding: 12px 10px;
+      background: rgba(0, 0, 0, 0.7); /* Glassmorphism effect */
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 8px;
+      text-decoration: none;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      backdrop-filter: blur(5px);
+    }
 
-    #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
+    .action-btn:active { background: rgba(255, 255, 255, 0.2); }
 
+    #scanning-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.1); z-index: 5; pointer-events: none;
+      border: 10px solid rgba(255,255,255,0.3); box-sizing: border-box;
+    }
 
-
-    /* Hide the default MindAR UI that can cause white borders */
-
-    .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
-
+    .hidden { display: none !important; }
   </style>
-
 </head>
-
 <body>
 
-
-
   <div id="overlay">
-
-    <h1 style="letter-spacing: 3px; font-weight: 300; margin-bottom: 25px;">FOUNDATIONS</h1>
-
-    <img src="https://dddanimation.github.io/3d/enslaved.jpg" id="marker-preview">
-
-    <button id="start-btn">Enter Experience</button>
-
+    <h1 style="letter-spacing: 8px; font-weight: 200; margin-bottom: 10px;">EBONY</h1>
+    <p style="opacity: 0.6; margin-bottom: 25px; font-size: 0.8rem;">AIM CAMERA AT MURAL</p>
+    <button id="start-btn">Begin Experience</button>
   </div>
 
+  <div id="ui-buttons">
+    <a href="https://instagram.com/YOUR_HANDLE" target="_blank" class="action-btn">Instagram</a>
+    <a href="https://YOURWEBSITE.com/prints" target="_blank" class="action-btn" style="background: #fff; color: #000;">Buy Prints</a>
+  </div>
 
+  <div id="scanning-overlay"></div>
 
   <a-scene 
-
-    mindar-image="imageTargetSrc: https://dddanimation.github.io/3d/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;" 
-
+    mindar-image="imageTargetSrc: https://dddanimation.github.io/3d/targets.mind; autoStart: false; uiScanning: no; uiLoading: no;" 
     color-space="sRGB" 
-
     renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
-
     vr-mode-ui="enabled: false" 
-
     device-orientation-permission-ui="enabled: false">
-
     
-
     <a-assets>
-
-      <a-asset-item id="sculpture" src="https://dddanimation.github.io/3d/enslaved.glb"></a-asset-item>
-
+      <a-asset-item id="ebony-model" src="https://dddanimation.github.io/3d/enslaved.glb"></a-asset-item>
     </a-assets>
-
-
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-
-
-    <a-light type="ambient" intensity="0.5"></a-light>
-
-    <a-light type="directional" position="1 2 1" intensity="0.7"></a-light>
-
-
+    <a-light type="ambient" intensity="0.7"></a-light>
+    <a-light type="directional" position="1 2 1" intensity="0.8"></a-light>
 
     <a-entity mindar-image-target="targetIndex: 0">
-
       <a-gltf-model 
-
-        src="#sculpture" 
-
-        position="0 0.0 0.0" 
-
-        scale="0.17 0.17 0.17"
-
+        src="#ebony-model" 
+        position="0 0 0.1" 
+        scale="0.2 0.2 0.2"
         rotation="90 0 0"
-
         animation-mixer>
-
       </a-gltf-model>
-
     </a-entity>
-
   </a-scene>
 
-
-
   <script>
-
     const startBtn = document.getElementById('start-btn');
-
     const overlay = document.getElementById('overlay');
-
+    const uiButtons = document.getElementById('ui-buttons');
+    const scanOverlay = document.getElementById('scanning-overlay');
     const sceneEl = document.querySelector('a-scene');
 
-
-
     startBtn.addEventListener('click', () => {
-
-      // Force the background of the body to transparent immediately on click
-
-      document.body.style.backgroundColor = "transparent";
-
-      sceneEl.systems["mindar-image-system"].start(); 
-
+      overlay.classList.add('hidden'); // Hide the splash screen
+      uiButtons.style.display = 'flex'; // Show the Instagram/Shop buttons
+      scanOverlay.style.display = 'block'; // Show scanning guide
+      sceneEl.systems["mindar-image-system"].start(); // Boot the camera
     });
-
-
-
-    sceneEl.addEventListener("arReady", () => {
-
-      overlay.style.display = "none";
-
-    });
-
-
-
-    // Final insurance: if the background is still black, this finds the video and pulls it forward
 
     sceneEl.addEventListener("targetFound", () => {
-
-        document.body.style.backgroundColor = "transparent";
-
+      scanOverlay.classList.add('hidden');
     });
 
+    sceneEl.addEventListener("targetLost", () => {
+      scanOverlay.classList.remove('hidden');
+    });
   </script>
-
 </body>
-
 </html>
