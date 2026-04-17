@@ -1,106 +1,120 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EBONY | Camera Force-Start</title>
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>EBONY AR Experience</title>
+  
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
-    <style>
-        body { margin: 0; background: #000; color: #fff; font-family: monospace; }
-        
-        /* High-visibility Debugger */
-        #status-log {
-            position: fixed; top: 0; left: 0; width: 100%; height: 30%;
-            background: rgba(0,255,0,0.1); color: #0f0; padding: 15px;
-            font-size: 14px; z-index: 10000; overflow-y: scroll; pointer-events: none;
-            border-bottom: 1px solid #0f0;
-        }
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #000; }
 
-        /* The Button - Absolute Top Layer */
-        #force-start-btn {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 80%; padding: 40px; background: #fff; color: #000;
-            border: none; border-radius: 15px; font-size: 20px; font-weight: 900;
-            z-index: 20000; cursor: pointer; box-shadow: 0 0 50px rgba(0,255,0,0.5);
-        }
-        .hidden { display: none !important; }
-    </style>
+    /* The Initial Landing Screen */
+    #overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #000; color: white;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      z-index: 100; text-align: center;
+    }
+
+    #start-btn { 
+      padding: 18px 40px; font-size: 1rem; background: #fff; color: #000; 
+      border: none; border-radius: 5px; cursor: pointer; font-weight: bold; 
+      text-transform: uppercase; letter-spacing: 2px;
+    }
+
+    /* Bottom UI Button Container */
+    #ui-buttons {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 15px; z-index: 50; width: 90%; justify-content: center;
+      display: none; 
+    }
+
+    .action-btn {
+      flex: 1; max-width: 160px; padding: 14px 10px; background: rgba(0, 0, 0, 0.8);
+      color: white; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 8px;
+      text-decoration: none; text-align: center; font-size: 0.85rem;
+      font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+
+    .action-btn:active { background: rgba(255, 255, 255, 0.3); }
+
+    #scanning-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.1); z-index: 5; pointer-events: none;
+      border: 10px solid rgba(255,255,255,0.2); box-sizing: border-box;
+    }
+
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
 
-    <div id="status-log">LOG INITIATED...<br>> Site Ready.</div>
-    <button id="force-start-btn">TAP TO ACTIVATE CAMERA</button>
+  <div id="overlay">
+    <h1 style="letter-spacing: 8px; font-weight: 200; margin-bottom: 10px;">EBONY</h1>
+    <p style="opacity: 0.6; margin-bottom: 25px; font-size: 0.8rem;">AIM CAMERA AT MURAL</p>
+    <button id="start-btn">Begin Experience</button>
+  </div>
 
-    <a-scene 
-        mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no;" 
-        embedded color-space="sRGB" 
-        renderer="colorManagement: true, alpha: true" 
-        vr-mode-ui="enabled: false" 
-        device-orientation-permission-ui="enabled: false">
-        
-        <a-assets>
-            <a-asset-item id="ebony-model" src="ebony.glb"></a-asset-item>
-        </a-assets>
+  <div id="ui-buttons">
+    <a href="https://www.instagram.com/qrcky/" target="_blank" class="action-btn">Instagram</a>
+    <a href="https://www.qrcky.net/prints/" target="_blank" class="action-btn" style="background: #fff; color: #000;">Buy Prints</a>
+  </div>
 
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  <div id="scanning-overlay"></div>
 
-        <a-entity mindar-image-target="targetIndex: 0">
-            <a-box position="0 0 0.1" scale="0.2 0.2 0.2" color="red"></a-box>
-            
-            <a-gltf-model 
-                src="#ebony-model" 
-                position="0 0 0.2" 
-                scale="0.01 0.01 0.01" 
-                rotation="90 0 0">
-            </a-gltf-model>
-        </a-entity>
-    </a-scene>
+  <a-scene 
+    mindar-image="imageTargetSrc: https://dddanimation.github.io/3d/targets.mind; autoStart: false; uiScanning: no; uiLoading: no;" 
+    color-space="sRGB" 
+    renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
+    vr-mode-ui="enabled: false" 
+    device-orientation-permission-ui="enabled: false">
+    
+    <a-assets>
+      <a-asset-item id="ebony-model" src="https://dddanimation.github.io/3d/ebony.glb"></a-asset-item>
+    </a-assets>
 
-    <script>
-        const log = document.getElementById('status-log');
-        const btn = document.getElementById('force-start-btn');
-        const sceneEl = document.querySelector('a-scene');
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-        function print(msg) {
-            log.innerHTML += `<br>> ${msg}`;
-            log.scrollTop = log.scrollHeight;
-        }
+    <a-light type="ambient" intensity="0.7"></a-light>
+    <a-light type="directional" position="1 2 1" intensity="0.8"></a-light>
 
-        // Check for Secure Context
-        if (!window.isSecureContext) {
-            print("CRITICAL: Browser says this site is NOT SECURE. Camera blocked.");
-        }
+    <a-entity mindar-image-target="targetIndex: 0">
+      <a-gltf-model 
+        src="#ebony-model" 
+        position="0 0 0.1" 
+        scale="0.05 0.05 0.05"
+        rotation="90 0 0"
+        animation-mixer>
+      </a-gltf-model>
+    </a-entity>
+  </a-scene>
 
-        btn.addEventListener('click', async () => {
-            print("Button Click Detected...");
-            btn.classList.add('hidden');
+  <script>
+    const startBtn = document.getElementById('start-btn');
+    const overlay = document.getElementById('overlay');
+    const uiButtons = document.getElementById('ui-buttons');
+    const scanOverlay = document.getElementById('scanning-overlay');
+    const sceneEl = document.querySelector('a-scene');
 
-            // Step 1: Force Camera Permission via Browser API
-            try {
-                print("Requesting Media Devices...");
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                print("Camera Access Granted by User.");
-                stream.getTracks().forEach(track => track.stop()); // Close it so AR can take over
-            } catch (err) {
-                print("PERMISSION DENIED: " + err.name);
-                return;
-            }
+    startBtn.addEventListener('click', () => {
+      overlay.classList.add('hidden');
+      uiButtons.style.display = 'flex'; 
+      scanOverlay.style.display = 'block';
+      sceneEl.systems["mindar-image-system"].start();
+    });
 
-            // Step 2: Start MindAR Engine
-            try {
-                print("Igniting AR Engine...");
-                await sceneEl.systems["mindar-image-system"].start();
-                print("AR SYSTEM ACTIVE. Point at Ebony Mural.");
-                document.body.style.backgroundColor = "transparent";
-            } catch (e) {
-                print("AR ENGINE CRASH: " + e.message);
-            }
-        });
+    sceneEl.addEventListener("targetFound", () => {
+      scanOverlay.classList.add('hidden');
+    });
 
-        // Tracking Listeners
-        sceneEl.addEventListener("targetFound", () => print("MURAL IDENTIFIED! Rendering 3D..."));
-        sceneEl.addEventListener("targetLost", () => print("Tracking Lost. Center the mural."));
-    </script>
+    sceneEl.addEventListener("targetLost", () => {
+      scanOverlay.classList.remove('hidden');
+    });
+  </script>
 </body>
 </html>
