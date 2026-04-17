@@ -1,93 +1,116 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>EBONY DEBUGGER</title>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
-  <style>
-    body { margin: 0; overflow: hidden; background: #111; font-family: monospace; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EBONY | AR Hard-Fix</title>
     
-    /* This will show you errors directly on your phone screen */
-    #debug-console {
-      position: fixed; top: 0; left: 0; width: 100%; height: 20%;
-      background: rgba(0,0,0,0.9); color: #00ff00; padding: 10px;
-      font-size: 12px; z-index: 9999; overflow-y: auto; pointer-events: none;
-    }
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
-    #start-btn { 
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      padding: 20px 40px; background: #00ff00; border: none; font-weight: bold;
-      z-index: 10000; cursor: pointer; border-radius: 8px;
-    }
-    .hidden { display: none !important; }
-  </style>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: sans-serif; }
+        
+        #ui-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 999; background: rgba(0,0,0,0.8);
+        }
+
+        #log {
+            position: fixed; top: 10px; left: 10px; width: 90%; height: 150px;
+            background: #222; color: #0f0; padding: 10px; font-size: 12px;
+            overflow-y: auto; z-index: 1000; border: 1px solid #444;
+        }
+
+        #big-button {
+            padding: 30px 60px; font-size: 20px; font-weight: bold;
+            background: #fff; color: #000; border: none; border-radius: 10px;
+            cursor: pointer; text-transform: uppercase;
+        }
+
+        .hidden { display: none !important; }
+    </style>
 </head>
 <body>
 
-  <div id="debug-console">READY: TAP START BUTTON</div>
-  <button id="start-btn">START TEST</button>
+    <div id="log">SYSTEM LOG:<br>> Page Loaded. Waiting for Tap...</div>
 
-  <a-scene 
-    mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no;" 
-    renderer="colorManagement: true, alpha: true" 
-    vr-mode-ui="enabled: false" 
-    device-orientation-permission-ui="enabled: false">
-    
-    <a-assets>
-      <a-asset-item id="ebony-model" src="ebony.glb"></a-asset-item>
-    </a-assets>
+    <div id="ui-layer">
+        <button id="big-button">ACTIVATE CAMERA</button>
+    </div>
 
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-scene 
+        mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no; uiLoading: no;" 
+        embedded color-space="sRGB" 
+        renderer="colorManagement: true, alpha: true" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false">
+        
+        <a-assets>
+            <a-asset-item id="ebony-model" src="ebony.glb"></a-asset-item>
+        </a-assets>
 
-    <a-entity mindar-image-target="targetIndex: 0">
-      <a-box position="0 0 0.1" scale="0.2 0.2 0.2" color="red"></a-box>
-      
-      <a-gltf-model 
-        src="#ebony-model" 
-        position="0 0 0.2" 
-        scale="0.01 0.01 0.01" 
-        rotation="90 0 0">
-      </a-gltf-model>
-    </a-entity>
-  </a-scene>
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-  <script>
-    const consoleEl = document.getElementById('debug-console');
-    const startBtn = document.getElementById('start-btn');
-    const sceneEl = document.querySelector('a-scene');
+        <a-entity mindar-image-target="targetIndex: 0">
+            <a-box position="0 0 0.1" scale="0.2 0.2 0.2" color="red"></a-box>
+            
+            <a-gltf-model 
+                src="#ebony-model" 
+                position="0 0 0.2" 
+                scale="0.01 0.01 0.01" 
+                rotation="90 0 0">
+            </a-gltf-model>
+        </a-entity>
+    </a-scene>
 
-    function log(msg) {
-      consoleEl.innerHTML += `<br>> ${msg}`;
-      consoleEl.scrollTop = consoleEl.scrollHeight;
-    }
+    <script>
+        const logWindow = document.getElementById('log');
+        const uiLayer = document.getElementById('ui-layer');
+        const btn = document.getElementById('big-button');
+        const sceneEl = document.querySelector('a-scene');
 
-    // 1. Click Event
-    startBtn.addEventListener('click', () => {
-      log("Button Clicked. Requesting Camera...");
-      startBtn.classList.add('hidden');
-      
-      // Attempt to start MindAR
-      sceneEl.systems["mindar-image-system"].start()
-        .then(() => log("Camera Stream Active."))
-        .catch((err) => log("CAMERA ERROR: " + err));
-    });
+        function print(msg) {
+            logWindow.innerHTML += `<br>> ${msg}`;
+            console.log(msg);
+        }
 
-    // 2. Tracking Events
-    sceneEl.addEventListener("arReady", () => log("AR Engine Initialized. Point at mural."));
-    
-    sceneEl.addEventListener("targetFound", () => {
-      log("SUCCESS: Mural Detected!");
-      document.body.style.backgroundColor = "transparent";
-    });
+        // Catch global errors (like 404s or script crashes)
+        window.onerror = function(msg, url, line) {
+            print(`CRITICAL ERROR: ${msg} at line ${line}`);
+        };
 
-    sceneEl.addEventListener("targetLost", () => log("Target Lost."));
+        btn.addEventListener('click', () => {
+            print("Button Tapped. Checking Protocol...");
+            
+            // 1. Check if running on HTTPS
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                print("ABORT: Camera requires HTTPS. Your site is not secure.");
+                return;
+            }
 
-    // 3. Model Loading Events
-    const model = document.querySelector('#ebony-model');
-    model.addEventListener('model-loaded', () => log("FILE LOADED: ebony.glb is in memory."));
-    model.addEventListener('model-error', (e) => log("FILE ERROR: Could not find/load ebony.glb. Check path."));
-  </script>
+            uiLayer.classList.add('hidden');
+            print("Requesting Camera Permissions...");
+
+            // 2. Start MindAR
+            try {
+                sceneEl.systems["mindar-image-system"].start();
+                print("MindAR System started. If screen is black, check browser permissions.");
+            } catch (e) {
+                print("START FAILED: " + e.message);
+            }
+        });
+
+        // Event Listeners for AR State
+        sceneEl.addEventListener("arReady", () => print("AR Engine Ready. Point at mural now."));
+        sceneEl.addEventListener("targetFound", () => print("SUCCESS: Mural Found!"));
+        sceneEl.addEventListener("targetLost", () => print("Target Lost. Re-scan mural."));
+
+        // File checks
+        document.querySelector('#ebony-model').addEventListener('model-error', () => {
+            print("ERROR: Could not load ebony.glb. Check file name/path.");
+        });
+    </script>
 </body>
 </html>
