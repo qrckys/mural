@@ -1,185 +1,140 @@
 <!DOCTYPE html>
-
-<html>
-
+<html lang="en">
 <head>
-
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-
   <title>Foundations AR</title>
-
   
-
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
-
-
   <style>
-
-    /* 1. Force the background to be transparent so the video shows through */
+    :root {
+      --accent: #ffffff;
+      --glass: rgba(0, 0, 0, 0.8);
+    }
 
     html, body { 
-
       margin: 0; padding: 0; width: 100%; height: 100%; 
-
       overflow: hidden; 
-
       background: transparent !important; 
-
     }
-
     
-
     #overlay {
-
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-
       background: #000; color: white; display: flex; flex-direction: column;
-
       justify-content: center; align-items: center; z-index: 9999; font-family: sans-serif;
-
     }
 
+    /* Loading UI */
+    #loading-container { width: 200px; margin-bottom: 25px; }
+    #loading-bar { width: 100%; height: 2px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; position: relative; }
+    #loading-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #fff; transition: width 0.3s ease; }
     
-
     #start-btn { 
-
+      display: none;
       padding: 18px 40px; font-size: 18px; background: #fff; color: #000; 
-
       border: none; border-radius: 4px; cursor: pointer; font-weight: bold; 
-
       text-transform: uppercase; 
-
     }
-
-
 
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
 
+    /* Bottom UI Button Container */
+    #ui-buttons {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 15px; z-index: 50; width: 90%; justify-content: center;
+      display: none; 
+    }
 
-
-    /* Hide the default MindAR UI that can cause white borders */
+    .action-btn {
+      flex: 1; max-width: 160px; padding: 14px 10px; background: var(--glass);
+      color: white; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 8px;
+      text-decoration: none; text-align: center; font-size: 0.85rem;
+      font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
 
     .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
-
   </style>
-
 </head>
-
 <body>
 
-
-
   <div id="overlay">
-
     <h1 style="letter-spacing: 3px; font-weight: 300; margin-bottom: 25px;">FOUNDATIONS</h1>
-
     <img src="https://qrckys.github.io/mural/enslaved.jpg" id="marker-preview">
+    
+    <div id="loading-container">
+      <div id="loading-bar"><div id="loading-fill"></div></div>
+    </div>
 
     <button id="start-btn">Enter Experience</button>
-
   </div>
 
-
+  <div id="ui-buttons">
+    <a href="https://www.instagram.com/qrcky/" target="_blank" class="action-btn">Instagram</a>
+    <a href="https://www.qrcky.net/prints/" target="_blank" class="action-btn" style="background: #fff; color: #000;">Buy Prints</a>
+  </div>
 
   <a-scene 
-
     mindar-image="imageTargetSrc: https://qrckys.github.io/mural/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;" 
-
     color-space="sRGB" 
-
     renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
-
     vr-mode-ui="enabled: false" 
-
     device-orientation-permission-ui="enabled: false">
-
     
-
     <a-assets>
-
       <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/enslaved.glb"></a-asset-item>
-
     </a-assets>
-
-
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-
-
     <a-light type="ambient" intensity="0.5"></a-light>
-
     <a-light type="directional" position="1 2 1" intensity="0.7"></a-light>
 
-
-
     <a-entity mindar-image-target="targetIndex: 0">
-
       <a-gltf-model 
-
         src="#sculpture" 
-
-        position="0 0.0 0.0" 
-
+        position="0 0.0 0.1" 
         scale="0.17 0.17 0.17"
-
         rotation="90 0 0"
-
         animation-mixer>
-
       </a-gltf-model>
-
     </a-entity>
-
   </a-scene>
 
-
-
   <script>
-
     const startBtn = document.getElementById('start-btn');
-
     const overlay = document.getElementById('overlay');
-
+    const uiButtons = document.getElementById('ui-buttons');
+    const loadingFill = document.getElementById('loading-fill');
+    const loadingContainer = document.getElementById('loading-container');
     const sceneEl = document.querySelector('a-scene');
 
+    // Asset Loading Logic
+    THREE.DefaultLoadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+      loadingFill.style.width = (itemsLoaded / itemsTotal) * 100 + '%';
+    };
 
+    THREE.DefaultLoadingManager.onLoad = () => {
+      loadingContainer.style.display = 'none';
+      startBtn.style.display = 'block';
+    };
 
     startBtn.addEventListener('click', () => {
-
-      // Force the background of the body to transparent immediately on click
-
       document.body.style.backgroundColor = "transparent";
-
       sceneEl.systems["mindar-image-system"].start(); 
-
     });
-
-
 
     sceneEl.addEventListener("arReady", () => {
-
       overlay.style.display = "none";
-
+      uiButtons.style.display = "flex";
     });
-
-
-
-    // Final insurance: if the background is still black, this finds the video and pulls it forward
 
     sceneEl.addEventListener("targetFound", () => {
-
-        document.body.style.backgroundColor = "transparent";
-
+      document.body.style.backgroundColor = "transparent";
     });
-
   </script>
-
 </body>
-
 </html>
