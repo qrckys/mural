@@ -3,67 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>EBONY AR Experience</title>
+  <title>EBONY | WebAR Experience</title>
   
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <style>
-    body { margin: 0; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #000; }
+    :root {
+      --accent: #ffffff;
+      --glass: rgba(0, 0, 0, 0.75);
+      --progress-bg: rgba(255, 255, 255, 0.1);
+    }
 
-    /* The Initial Landing Screen */
+    body { margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #000; }
+
+    /* Landing Screen Overlay */
     #overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: #000; color: white;
+      position: fixed; inset: 0;
+      background: #000; color: #fff;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
-      z-index: 100; text-align: center;
+      z-index: 2000; text-align: center; transition: opacity 0.5s ease;
+    }
+
+    /* Loading UI */
+    #loading-container { width: 200px; margin-top: 20px; }
+    
+    #loading-bar {
+      width: 100%; height: 4px; background: var(--progress-bg);
+      border-radius: 2px; overflow: hidden; position: relative;
+    }
+
+    #loading-fill {
+      position: absolute; top: 0; left: 0; height: 100%;
+      width: 0%; background: var(--accent);
+      transition: width 0.3s ease;
+    }
+
+    #loading-text {
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px;
+      margin-top: 10px; opacity: 0.6;
     }
 
     #start-btn { 
-      padding: 18px 40px; font-size: 1rem; background: #fff; color: #000; 
-      border: none; border-radius: 5px; cursor: pointer; font-weight: bold; 
-      text-transform: uppercase; letter-spacing: 2px;
+      display: none; /* Hidden until 100% loaded */
+      padding: 20px 60px; font-size: 1.1rem; background: var(--accent); color: #000; 
+      border: none; border-radius: 50px; cursor: pointer; font-weight: 800; 
+      text-transform: uppercase; letter-spacing: 3px; margin-top: 20px;
     }
 
-    /* Bottom UI Button Container */
-    #ui-buttons {
-      position: fixed;
-      bottom: 40px; 
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 15px;
-      z-index: 50;
-      width: 90%;
-      justify-content: center;
-      display: none; 
+    /* Bottom Buttons (Instagram/Shop) */
+    #ar-ui {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 40px 20px; display: none; flex-direction: column;
+      align-items: center; z-index: 1000; pointer-events: none;
     }
+
+    .btn-container { display: flex; gap: 12px; width: 100%; max-width: 400px; pointer-events: auto; }
 
     .action-btn {
-      flex: 1;
-      max-width: 160px;
-      padding: 14px 10px;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      border-radius: 8px;
-      text-decoration: none;
-      text-align: center;
-      font-size: 0.85rem;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      flex: 1; padding: 16px 10px; background: var(--glass); color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 12px;
+      text-decoration: none; text-align: center; font-size: 0.85rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     }
 
-    .action-btn:active { background: rgba(255, 255, 255, 0.3); }
+    .action-btn.primary { background: #fff; color: #000; border: none; }
 
-    #scanning-overlay {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.1); z-index: 5; pointer-events: none;
-      border: 10px solid rgba(255,255,255,0.2); box-sizing: border-box;
+    #scan-guide {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 70vw; height: 70vw; max-width: 300px; border: 2px dashed rgba(255,255,255,0.4);
+      border-radius: 20px; display: none; pointer-events: none; z-index: 500;
     }
 
     .hidden { display: none !important; }
@@ -72,22 +83,30 @@
 <body>
 
   <div id="overlay">
-    <h1 style="letter-spacing: 8px; font-weight: 200; margin-bottom: 10px;">EBONY</h1>
-    <p style="opacity: 0.6; margin-bottom: 25px; font-size: 0.8rem;">AIM CAMERA AT MURAL</p>
-    <button id="start-btn">Begin Experience</button>
+    <h1 style="letter-spacing: 12px; font-weight: 200; margin: 0;">EBONY</h1>
+    <div style="width: 40px; height: 1px; background: #333; margin: 20px 0;"></div>
+    
+    <div id="loading-container">
+      <div id="loading-bar"><div id="loading-fill"></div></div>
+      <div id="loading-text">Loading Experience...</div>
+    </div>
+
+    <button id="start-btn">Enter</button>
   </div>
 
-  <div id="ui-buttons">
-    <a href="https://www.instagram.com/qrcky/" target="_blank" class="action-btn">Instagram</a>
-    <a href="https://www.qrcky.net/prints/" target="_blank" class="action-btn" style="background: #fff; color: #000;">Buy Prints</a>
+  <div id="ar-ui">
+    <div class="btn-container">
+      <a href="https://www.instagram.com/qrcky/" target="_blank" class="action-btn">Follow</a>
+      <a href="https://www.qrcky.net/prints/" target="_blank" class="action-btn primary">Buy Prints</a>
+    </div>
   </div>
 
-  <div id="scanning-overlay"></div>
+  <div id="scan-guide"></div>
 
   <a-scene 
     mindar-image="imageTargetSrc: https://dddanimation.github.io/3d/targets.mind; autoStart: false; uiScanning: no; uiLoading: no;" 
     color-space="sRGB" 
-    renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
+    renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true, antialias: true, logarithmicDepthBuffer: true" 
     vr-mode-ui="enabled: false" 
     device-orientation-permission-ui="enabled: false">
     
@@ -96,42 +115,48 @@
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-    <a-light type="ambient" intensity="0.7"></a-light>
-    <a-light type="directional" position="1 2 1" intensity="0.8"></a-light>
+    <a-light type="ambient" intensity="1.2"></a-light>
+    <a-light type="directional" position="1 2 1" intensity="1.5"></a-light>
 
     <a-entity mindar-image-target="targetIndex: 0">
-      <a-gltf-model 
-        src="#ebony-model" 
-        position="0 0 0.1" 
-        scale="0.2 0.2 0.2"
-        rotation="90 0 0"
-        animation-mixer>
-      </a-gltf-model>
+      <a-gltf-model src="#ebony-model" position="0 0 0.1" scale="0.2 0.2 0.2" rotation="90 0 0" animation-mixer></a-gltf-model>
     </a-entity>
   </a-scene>
 
   <script>
     const startBtn = document.getElementById('start-btn');
+    const loadingContainer = document.getElementById('loading-container');
+    const loadingFill = document.getElementById('loading-fill');
     const overlay = document.getElementById('overlay');
-    const uiButtons = document.getElementById('ui-buttons');
-    const scanOverlay = document.getElementById('scanning-overlay');
+    const arUi = document.getElementById('ar-ui');
+    const scanGuide = document.getElementById('scan-guide');
     const sceneEl = document.querySelector('a-scene');
 
+    /* 1. Track Loading Progress */
+    THREE.DefaultLoadingManager.onProgress = function (url, itemsLoaded, itemsTotal) {
+      const progress = (itemsLoaded / itemsTotal) * 100;
+      loadingFill.style.width = progress + '%';
+    };
+
+    /* 2. Show 'Enter' Button When Ready */
+    THREE.DefaultLoadingManager.onLoad = function () {
+      loadingContainer.style.display = 'none';
+      startBtn.style.display = 'block';
+    };
+
+    /* 3. Handle Experience Start */
     startBtn.addEventListener('click', () => {
-      overlay.classList.add('hidden');
-      uiButtons.style.display = 'flex'; 
-      scanOverlay.style.display = 'block';
-      sceneEl.systems["mindar-image-system"].start();
+      overlay.style.opacity = '0';
+      setTimeout(() => {
+        overlay.classList.add('hidden');
+        arUi.style.display = 'flex';
+        scanGuide.style.display = 'block';
+        sceneEl.systems["mindar-image-system"].start();
+      }, 500);
     });
 
-    sceneEl.addEventListener("targetFound", () => {
-      scanOverlay.classList.add('hidden');
-    });
-
-    sceneEl.addEventListener("targetLost", () => {
-      scanOverlay.classList.remove('hidden');
-    });
+    sceneEl.addEventListener("targetFound", () => scanGuide.classList.add('hidden'));
+    sceneEl.addEventListener("targetLost", () => scanGuide.classList.remove('hidden'));
   </script>
 </body>
 </html>
