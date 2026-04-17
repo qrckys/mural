@@ -1,47 +1,39 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EBONY | AR Hard-Fix</title>
-    
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <title>EBONY | Camera Force-Start</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: sans-serif; }
+        body { margin: 0; background: #000; color: #fff; font-family: monospace; }
         
-        #ui-layer {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 999; background: rgba(0,0,0,0.8);
+        /* High-visibility Debugger */
+        #status-log {
+            position: fixed; top: 0; left: 0; width: 100%; height: 30%;
+            background: rgba(0,255,0,0.1); color: #0f0; padding: 15px;
+            font-size: 14px; z-index: 10000; overflow-y: scroll; pointer-events: none;
+            border-bottom: 1px solid #0f0;
         }
 
-        #log {
-            position: fixed; top: 10px; left: 10px; width: 90%; height: 150px;
-            background: #222; color: #0f0; padding: 10px; font-size: 12px;
-            overflow-y: auto; z-index: 1000; border: 1px solid #444;
+        /* The Button - Absolute Top Layer */
+        #force-start-btn {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80%; padding: 40px; background: #fff; color: #000;
+            border: none; border-radius: 15px; font-size: 20px; font-weight: 900;
+            z-index: 20000; cursor: pointer; box-shadow: 0 0 50px rgba(0,255,0,0.5);
         }
-
-        #big-button {
-            padding: 30px 60px; font-size: 20px; font-weight: bold;
-            background: #fff; color: #000; border: none; border-radius: 10px;
-            cursor: pointer; text-transform: uppercase;
-        }
-
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div id="log">SYSTEM LOG:<br>> Page Loaded. Waiting for Tap...</div>
-
-    <div id="ui-layer">
-        <button id="big-button">ACTIVATE CAMERA</button>
-    </div>
+    <div id="status-log">LOG INITIATED...<br>> Site Ready.</div>
+    <button id="force-start-btn">TAP TO ACTIVATE CAMERA</button>
 
     <a-scene 
-        mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no; uiLoading: no;" 
+        mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no;" 
         embedded color-space="sRGB" 
         renderer="colorManagement: true, alpha: true" 
         vr-mode-ui="enabled: false" 
@@ -66,51 +58,49 @@
     </a-scene>
 
     <script>
-        const logWindow = document.getElementById('log');
-        const uiLayer = document.getElementById('ui-layer');
-        const btn = document.getElementById('big-button');
+        const log = document.getElementById('status-log');
+        const btn = document.getElementById('force-start-btn');
         const sceneEl = document.querySelector('a-scene');
 
         function print(msg) {
-            logWindow.innerHTML += `<br>> ${msg}`;
-            console.log(msg);
+            log.innerHTML += `<br>> ${msg}`;
+            log.scrollTop = log.scrollHeight;
         }
 
-        // Catch global errors (like 404s or script crashes)
-        window.onerror = function(msg, url, line) {
-            print(`CRITICAL ERROR: ${msg} at line ${line}`);
-        };
+        // Check for Secure Context
+        if (!window.isSecureContext) {
+            print("CRITICAL: Browser says this site is NOT SECURE. Camera blocked.");
+        }
 
-        btn.addEventListener('click', () => {
-            print("Button Tapped. Checking Protocol...");
-            
-            // 1. Check if running on HTTPS
-            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                print("ABORT: Camera requires HTTPS. Your site is not secure.");
+        btn.addEventListener('click', async () => {
+            print("Button Click Detected...");
+            btn.classList.add('hidden');
+
+            // Step 1: Force Camera Permission via Browser API
+            try {
+                print("Requesting Media Devices...");
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                print("Camera Access Granted by User.");
+                stream.getTracks().forEach(track => track.stop()); // Close it so AR can take over
+            } catch (err) {
+                print("PERMISSION DENIED: " + err.name);
                 return;
             }
 
-            uiLayer.classList.add('hidden');
-            print("Requesting Camera Permissions...");
-
-            // 2. Start MindAR
+            // Step 2: Start MindAR Engine
             try {
-                sceneEl.systems["mindar-image-system"].start();
-                print("MindAR System started. If screen is black, check browser permissions.");
+                print("Igniting AR Engine...");
+                await sceneEl.systems["mindar-image-system"].start();
+                print("AR SYSTEM ACTIVE. Point at Ebony Mural.");
+                document.body.style.backgroundColor = "transparent";
             } catch (e) {
-                print("START FAILED: " + e.message);
+                print("AR ENGINE CRASH: " + e.message);
             }
         });
 
-        // Event Listeners for AR State
-        sceneEl.addEventListener("arReady", () => print("AR Engine Ready. Point at mural now."));
-        sceneEl.addEventListener("targetFound", () => print("SUCCESS: Mural Found!"));
-        sceneEl.addEventListener("targetLost", () => print("Target Lost. Re-scan mural."));
-
-        // File checks
-        document.querySelector('#ebony-model').addEventListener('model-error', () => {
-            print("ERROR: Could not load ebony.glb. Check file name/path.");
-        });
+        // Tracking Listeners
+        sceneEl.addEventListener("targetFound", () => print("MURAL IDENTIFIED! Rendering 3D..."));
+        sceneEl.addEventListener("targetLost", () => print("Tracking Lost. Center the mural."));
     </script>
 </body>
 </html>
