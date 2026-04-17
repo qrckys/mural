@@ -1,34 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>AR DEBUG | EBONY</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>EBONY DEBUGGER</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    body { margin: 0; overflow: hidden; background: #000; }
-    #debug-log {
-      position: fixed; top: 10px; left: 10px; padding: 10px;
-      background: rgba(0,0,0,0.8); color: #00ff00; font-family: monospace;
-      font-size: 12px; z-index: 9999; pointer-events: none; width: 90%;
+    body { margin: 0; overflow: hidden; background: #111; font-family: monospace; }
+    
+    /* This will show you errors directly on your phone screen */
+    #debug-console {
+      position: fixed; top: 0; left: 0; width: 100%; height: 20%;
+      background: rgba(0,0,0,0.9); color: #00ff00; padding: 10px;
+      font-size: 12px; z-index: 9999; overflow-y: auto; pointer-events: none;
     }
+
     #start-btn { 
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      padding: 20px; z-index: 10000; cursor: pointer;
+      padding: 20px 40px; background: #00ff00; border: none; font-weight: bold;
+      z-index: 10000; cursor: pointer; border-radius: 8px;
     }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <div id="debug-log">Status: Waiting for Start...</div>
-  <button id="start-btn">TAP TO START DEBUG</button>
+  <div id="debug-console">READY: TAP START BUTTON</div>
+  <button id="start-btn">START TEST</button>
 
   <a-scene 
-    mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no; uiLoading: no;" 
-    color-space="sRGB" 
+    mindar-image="imageTargetSrc: targets.mind; autoStart: false; uiScanning: no;" 
     renderer="colorManagement: true, alpha: true" 
     vr-mode-ui="enabled: false" 
     device-orientation-permission-ui="enabled: false">
@@ -41,7 +43,7 @@
 
     <a-entity mindar-image-target="targetIndex: 0">
       <a-box position="0 0 0.1" scale="0.2 0.2 0.2" color="red"></a-box>
-
+      
       <a-gltf-model 
         src="#ebony-model" 
         position="0 0 0.2" 
@@ -52,37 +54,40 @@
   </a-scene>
 
   <script>
-    const log = document.getElementById('debug-log');
+    const consoleEl = document.getElementById('debug-console');
     const startBtn = document.getElementById('start-btn');
     const sceneEl = document.querySelector('a-scene');
 
-    function updateLog(msg) {
-      log.innerHTML += `<br>> ${msg}`;
+    function log(msg) {
+      consoleEl.innerHTML += `<br>> ${msg}`;
+      consoleEl.scrollTop = consoleEl.scrollHeight;
     }
 
+    // 1. Click Event
     startBtn.addEventListener('click', () => {
+      log("Button Clicked. Requesting Camera...");
       startBtn.classList.add('hidden');
-      updateLog("Starting AR Engine...");
-      sceneEl.systems["mindar-image-system"].start();
+      
+      // Attempt to start MindAR
+      sceneEl.systems["mindar-image-system"].start()
+        .then(() => log("Camera Stream Active."))
+        .catch((err) => log("CAMERA ERROR: " + err));
     });
 
-    sceneEl.addEventListener("arReady", () => updateLog("AR Engine Ready. Aim at mural."));
-    sceneEl.addEventListener("arError", (e) => updateLog("ERROR: " + e.detail.error));
+    // 2. Tracking Events
+    sceneEl.addEventListener("arReady", () => log("AR Engine Initialized. Point at mural."));
     
     sceneEl.addEventListener("targetFound", () => {
-      updateLog("MURAL DETECTED!");
+      log("SUCCESS: Mural Detected!");
       document.body.style.backgroundColor = "transparent";
     });
 
-    sceneEl.addEventListener("targetLost", () => updateLog("Target Lost."));
+    sceneEl.addEventListener("targetLost", () => log("Target Lost."));
 
-    // Check if the GLB file actually loads
-    document.querySelector('#ebony-model').addEventListener('model-loaded', () => {
-      updateLog("SUCCESS: ebony.glb loaded.");
-    });
-    document.querySelector('#ebony-model').addEventListener('model-error', (e) => {
-      updateLog("ERROR: ebony.glb failed to load.");
-    });
+    // 3. Model Loading Events
+    const model = document.querySelector('#ebony-model');
+    model.addEventListener('model-loaded', () => log("FILE LOADED: ebony.glb is in memory."));
+    model.addEventListener('model-error', (e) => log("FILE ERROR: Could not find/load ebony.glb. Check path."));
   </script>
 </body>
 </html>
