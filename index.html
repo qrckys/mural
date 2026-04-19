@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <style>
-    /* Force the background to be transparent so the video shows through */
+    /* 1. Force the background to be transparent so the video shows through */
     html, body { 
       margin: 0; padding: 0; width: 100%; height: 100%; 
       overflow: hidden; 
@@ -30,37 +30,39 @@
 
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
 
-    /* UI Controls Container */
+    /* UI Controls Container - Bottom UI */
     #ui-controls {
       position: fixed;
-      bottom: 30px;
+      bottom: 40px;
       left: 50%;
       transform: translateX(-50%);
-      display: none; /* Hidden until AR starts */
-      gap: 20px;
+      display: none; /* Revealed after start */
+      gap: 15px;
       z-index: 1000;
-    }
-
-    .ui-btn {
-      padding: 12px 20px;
-      background: rgba(255, 255, 255, 0.8);
-      color: #000;
-      text-decoration: none;
-      border-radius: 30px;
-      font-family: sans-serif;
-      font-weight: bold;
-      font-size: 14px;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
+      width: 90%;
       justify-content: center;
     }
 
-    .ui-btn:active { transform: scale(0.95); }
+    /* Black Button Style */
+    .black-btn {
+      padding: 15px 25px;
+      background: #000;
+      color: #fff;
+      text-decoration: none;
+      border: 1px solid #444;
+      border-radius: 4px;
+      font-family: sans-serif;
+      font-weight: bold;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-align: center;
+      min-width: 120px;
+    }
 
-    /* Hide default MindAR UI */
+    .black-btn:active { background: #333; }
+
+    /* Hide MindAR default UI */
     .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
   </style>
 </head>
@@ -73,8 +75,8 @@
   </div>
 
   <div id="ui-controls">
-    <a href="https://www.instagram.com/" target="_blank" class="ui-btn">Instagram</a>
-    <button class="ui-btn" onclick="window.print()">Print</button>
+    <a href="https://www.instagram.com/YOUR_HANDLE" target="_blank" class="black-btn">Instagram</a>
+    <a href="https://YOUR_WEBSITE.com/prints" target="_blank" class="black-btn">Get Prints</a>
   </div>
 
   <a-scene 
@@ -113,7 +115,7 @@
     startBtn.addEventListener('click', () => {
       document.body.style.backgroundColor = "transparent";
       sceneEl.systems["mindar-image-system"].start(); 
-      // Show the social/print buttons after clicking start
+      // Reveal the Instagram and Print links
       uiControls.style.display = "flex";
     });
 
