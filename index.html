@@ -12,7 +12,7 @@
     html, body { 
       margin: 0; padding: 0; width: 100%; height: 100%; 
       overflow: hidden; 
-      background: #000 !important; /* Start black to prevent white flash */
+      background: #000 !important; 
     }
     
     #overlay {
@@ -59,7 +59,7 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
 
-    /* Nuclear option to hide A-Frame VR/AR UI */
+    /* Force Hide A-Frame VR/AR UI */
     .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
 
     .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
@@ -118,7 +118,6 @@
       startBtn.innerText = "INITIALIZING...";
       const mindAR = sceneEl.systems["mindar-image-system"];
       
-      // Fixes the race condition
       if (mindAR) {
         mindAR.start();
       } else {
@@ -128,16 +127,25 @@
       }
     });
 
-    // Final clean reveal
     sceneEl.addEventListener("arReady", () => {
       overlay.style.display = "none";
       uiControls.style.display = "flex";
       document.body.style.backgroundColor = "transparent";
     });
 
-    // Error feedback
     sceneEl.addEventListener("arError", () => {
-      statusContainer.innerHTML = "<p style='color: #ff4444; font-weight: bold;'>CAMERA ERROR<br><span style='font-size: 12px; font-weight: normal;'>Please ensure camera permissions are allowed and reload.</span></p>";
+      // Reset button state and provide user feedback
+      startBtn.innerText = "Enter Experience";
+      statusContainer.innerHTML = `
+        <div style="padding: 20px;">
+          <p style="color: #ff4444; font-weight: bold; margin-bottom: 10px;">CAMERA ERROR</p>
+          <p style="font-size: 14px; line-height: 1.5;">
+            This experience requires camera access to view the AR sculpture.<br>
+            Please allow camera permissions and reload the page.
+          </p>
+          <button onclick="window.location.reload()" class="black-btn" style="margin-top: 15px; background: #fff; color: #000; border: none;">RELOAD</button>
+        </div>
+      `;
     });
   </script>
 </body>
