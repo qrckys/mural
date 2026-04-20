@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <style>
-    /* 1. Force the background to be transparent so the video shows through */
+    /* Force the background to be transparent so the video shows through */
     html, body { 
       margin: 0; padding: 0; width: 100%; height: 100%; 
       overflow: hidden; 
@@ -43,7 +43,7 @@
       justify-content: center;
     }
 
-    /* Black Button Style */
+    /* Solid Black Button Style */
     .black-btn {
       padding: 15px 25px;
       background: #000;
@@ -53,16 +53,17 @@
       border-radius: 4px;
       font-family: sans-serif;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 1px;
       text-align: center;
       min-width: 120px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
 
     .black-btn:active { background: #333; }
 
-    /* Hide MindAR default UI */
+    /* Hide the default MindAR UI */
     .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
   </style>
 </head>
@@ -75,8 +76,8 @@
   </div>
 
   <div id="ui-controls">
-    <a href="https://www.instagram.com/YOUR_HANDLE" target="_blank" class="black-btn">Instagram</a>
-    <a href="https://YOUR_WEBSITE.com/prints" target="_blank" class="black-btn">Get Prints</a>
+    <a href="https://www.instagram.com/qrcky/" target="_blank" class="black-btn">Instagram</a>
+    <a href="https://www.qrcky.net/prints/" target="_blank" class="black-btn">Get Prints</a>
   </div>
 
   <a-scene 
@@ -98,8 +99,8 @@
     <a-entity mindar-image-target="targetIndex: 0">
       <a-gltf-model 
         src="#sculpture" 
-        position="0 -7.0 0.0" 
-        scale="0.017 0.017 0.017"
+        position="0 0.0 0.0" 
+        scale="0.17 0.17 0.17"
         rotation="0 0 0"
         animation-mixer>
       </a-gltf-model>
@@ -115,7 +116,7 @@
     startBtn.addEventListener('click', () => {
       document.body.style.backgroundColor = "transparent";
       sceneEl.systems["mindar-image-system"].start(); 
-      // Reveal the Instagram and Print links
+      // Reveal the Instagram and Print buttons
       uiControls.style.display = "flex";
     });
 
@@ -123,6 +124,7 @@
       overlay.style.display = "none";
     });
 
+    // Final insurance for background transparency
     sceneEl.addEventListener("targetFound", () => {
         document.body.style.backgroundColor = "transparent";
     });
