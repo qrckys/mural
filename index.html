@@ -9,41 +9,39 @@
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <style>
-    /* Force the background to be transparent so the video shows through */
     html, body { 
       margin: 0; padding: 0; width: 100%; height: 100%; 
       overflow: hidden; 
-      background: transparent !important; 
+      background: #000 !important; /* Start black to prevent white flash */
     }
     
     #overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #000; color: white; display: flex; flex-direction: column;
       justify-content: center; align-items: center; z-index: 9999; font-family: sans-serif;
+      text-align: center;
     }
     
     #start-btn { 
       padding: 18px 40px; font-size: 18px; background: #fff; color: #000; 
       border: none; border-radius: 4px; cursor: pointer; font-weight: bold; 
-      text-transform: uppercase; 
+      text-transform: uppercase; letter-spacing: 1px;
     }
 
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
 
-    /* UI Controls Container - Bottom UI */
     #ui-controls {
       position: fixed;
       bottom: 40px;
       left: 50%;
       transform: translateX(-50%);
-      display: none; /* Revealed after start */
+      display: none; 
       gap: 15px;
       z-index: 1000;
       width: 90%;
       justify-content: center;
     }
 
-    /* Solid Black Button Style */
     .black-btn {
       padding: 15px 25px;
       background: #000;
@@ -61,12 +59,9 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
 
-    .black-btn:active { background: #333; }
+    /* Nuclear option to hide A-Frame VR/AR UI */
+    .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
 
-    /* HIDDEN VR BUTTON - Force hide the A-Frame VR/AR icons */
-    .a-enter-vr, .a-enter-ar { display: none !important; }
-
-    /* Hide the default MindAR UI */
     .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
   </style>
 </head>
@@ -74,8 +69,11 @@
 
   <div id="overlay">
     <h1 style="letter-spacing: 3px; font-weight: 300; margin-bottom: 25px;">FOUNDATIONS</h1>
-    <img src="https://qrckys.github.io/mural/enslaved.jpg" id="marker-preview">
-    <button id="start-btn">Enter Experience</button>
+    <div id="status-container">
+        <img src="https://qrckys.github.io/mural/enslaved.jpg" id="marker-preview">
+        <br>
+        <button id="start-btn">Enter Experience</button>
+    </div>
   </div>
 
   <div id="ui-controls">
@@ -84,7 +82,7 @@
   </div>
 
   <a-scene 
-    mindar-image="imageTargetSrc: https://qrckys.github.io/mural/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;" 
+    mindar-image="imageTargetSrc: https://qrckys.github.io/mural/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.001; filterBeta: 0.001;" 
     color-space="sRGB" 
     renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
     vr-mode-ui="enabled: false" 
@@ -95,7 +93,6 @@
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
     <a-light type="ambient" intensity="0.5"></a-light>
     <a-light type="directional" position="1 2 1" intensity="0.7"></a-light>
 
@@ -113,23 +110,34 @@
   <script>
     const startBtn = document.getElementById('start-btn');
     const overlay = document.getElementById('overlay');
+    const statusContainer = document.getElementById('status-container');
     const uiControls = document.getElementById('ui-controls');
     const sceneEl = document.querySelector('a-scene');
 
     startBtn.addEventListener('click', () => {
-      document.body.style.backgroundColor = "transparent";
-      sceneEl.systems["mindar-image-system"].start(); 
-      // Reveal the Instagram and Print buttons
-      uiControls.style.display = "flex";
+      startBtn.innerText = "INITIALIZING...";
+      const mindAR = sceneEl.systems["mindar-image-system"];
+      
+      // Fixes the race condition
+      if (mindAR) {
+        mindAR.start();
+      } else {
+        sceneEl.addEventListener("loaded", () => {
+          sceneEl.systems["mindar-image-system"].start();
+        }, { once: true });
+      }
     });
 
+    // Final clean reveal
     sceneEl.addEventListener("arReady", () => {
       overlay.style.display = "none";
+      uiControls.style.display = "flex";
+      document.body.style.backgroundColor = "transparent";
     });
 
-    // Final insurance for background transparency
-    sceneEl.addEventListener("targetFound", () => {
-        document.body.style.backgroundColor = "transparent";
+    // Error feedback
+    sceneEl.addEventListener("arError", () => {
+      statusContainer.innerHTML = "<p style='color: #ff4444; font-weight: bold;'>CAMERA ERROR<br><span style='font-size: 12px; font-weight: normal;'>Please ensure camera permissions are allowed and reload.</span></p>";
     });
   </script>
 </body>
