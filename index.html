@@ -130,7 +130,7 @@
   const sceneEl           = document.querySelector('a-scene');
   const audioEl           = document.getElementById('audio-file');
 
-  let arStarted = false; // guard — dismissOverlay only runs once
+  let arStarted = false; 
 
   function dismissOverlay() {
     if (arStarted) return;
@@ -147,12 +147,10 @@
     errorMsg.style.display = 'block';
     progressContainer.style.display = 'none';
     progressText.style.display = 'none';
-    startBtn.style.display = 'block'; // allow retry
+    startBtn.style.display = 'block'; 
   }
 
   startBtn.addEventListener('click', () => {
-    console.log("Button clicked");
-
     startBtn.style.display = "none";
     progressContainer.style.display = "block";
     progressText.style.display = "block";
@@ -166,9 +164,9 @@
       } catch (e) {
         console.log("AudioContext note:", e);
       }
+      // Warm up the audio so it's ready for later
       audioEl.play().then(() => {
         audioEl.pause();
-        audioEl.currentTime = 0;
       }).catch(e => console.log("Audio unlock note:", e));
     };
 
@@ -176,20 +174,11 @@
       unlockAudio();
       const mindAR = sceneEl.systems["mindar-image-system"];
       if (mindAR) {
-        console.log("Starting MindAR");
         mindAR.start();
-
-        // Safety fallback: if arReady never fires (e.g. assets cached,
-        // progress events skipped), force-dismiss overlay after 12s
         setTimeout(() => {
-          if (!arStarted) {
-            console.warn("arReady timeout — force dismissing overlay");
-            dismissOverlay();
-          }
+          if (!arStarted) dismissOverlay();
         }, 12000);
-
       } else {
-        console.error("MindAR system not found");
         showError("Could not start AR. Please refresh and try again.");
       }
     };
@@ -201,7 +190,6 @@
     }
   });
 
-  // Progress bar
   sceneEl.addEventListener("mindar-image-load-progress", (event) => {
     const progress = event.detail.progress;
     progressBar.style.width = progress + "%";
@@ -209,18 +197,17 @@
     progressText.innerText = "LOADING DATA: " + Math.round(progress) + "%";
   });
 
-  // arReady — correct event for MindAR 1.2.5
   sceneEl.addEventListener("arReady", () => {
-    console.log("arReady fired");
     dismissOverlay();
   });
 
-  // Target found / lost
+  // Target found / lost logic
   document.querySelectorAll('.mural-target').forEach((target) => {
     target.addEventListener("targetFound", () => {
       document.getElementById('ui-controls').style.display = "flex";
       document.getElementById('scan-hint').style.display = "none";
-      audioEl.currentTime = 0;
+      
+      // Removed currentTime = 0 to prevent restarting the audio
       audioEl.play().catch(e => console.log("Playback error:", e));
     });
 
@@ -230,9 +217,7 @@
     });
   });
 
-  // AR error
   sceneEl.addEventListener("arError", (event) => {
-    console.error("AR Error:", event);
     overlay.style.display = "flex";
     showError("Camera error. Please ensure you are on HTTPS and have granted camera permissions.");
   });
