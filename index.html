@@ -24,23 +24,17 @@
     #start-btn { 
       padding: 18px 40px; font-size: 18px; background: #28a745; color: #fff; 
       border: none; border-radius: 4px; cursor: pointer; font-weight: bold; 
-      text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s ease;
+      text-transform: uppercase; letter-spacing: 1px;
     }
 
-    #start-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
 
-    /* Progress Bar Container */
     #progress-container {
       width: 200px; height: 4px; background: #333;
       margin-top: 20px; border-radius: 2px; display: none; overflow: hidden;
     }
 
-    /* The actual moving bar */
-    #progress-bar {
-      width: 0%; height: 100%; background: #28a745;
-      transition: width 0.2s ease;
-    }
+    #progress-bar { width: 0%; height: 100%; background: #28a745; transition: width 0.3s ease; }
 
     #scan-hint {
       position: fixed; top: 30px; width: 100%; text-align: center;
@@ -72,6 +66,7 @@
   <div id="overlay">
     <h1 style="letter-spacing: 3px; font-weight: 300; margin-bottom: 5px;">EBONY</h1>
     <p style="font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; margin-bottom: 25px; opacity: 0.8;">by Qrcky</p>
+    
     <div id="status-container">
         <img src="https://qrckys.github.io/mural/ebony.jpg" id="marker-preview">
         <br>
@@ -80,7 +75,7 @@
         <div id="progress-container">
           <div id="progress-bar"></div>
         </div>
-        <p id="progress-text" style="font-size: 10px; margin-top: 10px; color: #888; display: none; letter-spacing: 1px;">LOADING TARGETS...</p>
+        <p id="progress-text" style="font-size: 10px; margin-top: 10px; color: #888; display: none; letter-spacing: 1px;">INITIALIZING...</p>
     </div>
   </div>
 
@@ -90,7 +85,7 @@
   </div>
 
 <a-scene 
-  mindar-image="imageTargetSrc: https://qrckys.github.io/mural/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.0005;" 
+  mindar-image="imageTargetSrc: https://qrckys.github.io/mural/targets.mind; autoStart: false; uiScanning: false; uiLoading: false;" 
   color-space="sRGB" 
   renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
   vr-mode-ui="enabled: false" 
@@ -98,7 +93,7 @@
     
     <a-assets>
       <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb"></a-asset-item>
-      <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop playsinline webkit-playsinline></audio>
+      <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop playsinline></audio>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -111,77 +106,90 @@
     <a-entity mindar-image-target="targetIndex: 1" class="mural-target">
       <a-gltf-model src="#sculpture" position="0.0 -0.525 0.0" scale="0.048 0.048 0.048" animation-mixer="clip: *; loop: repeat"></a-gltf-model>
     </a-entity>
-
 </a-scene>
 
 <script>
   const startBtn = document.getElementById('start-btn');
   const overlay = document.getElementById('overlay');
-  const uiControls = document.getElementById('ui-controls');
-  const scanHint = document.getElementById('scan-hint');
-  const sceneEl = document.querySelector('a-scene');
-  const audioEl = document.getElementById('audio-file');
-  const allTargets = document.querySelectorAll('.mural-target');
-  
-  // Progress Bar Elements
   const progressContainer = document.getElementById('progress-container');
   const progressBar = document.getElementById('progress-bar');
   const progressText = document.getElementById('progress-text');
+  const sceneEl = document.querySelector('a-scene');
+  const audioEl = document.getElementById('audio-file');
 
   startBtn.addEventListener('click', () => {
-    startBtn.style.display = "none"; // Hide button after click
-    progressContainer.style.display = "block"; // Show progress bar
-    progressText.style.display = "block"; // Show loading text
+    console.log("Button clicked");
     
-    // Unlock Audio Context
+    // UI Update
+    startBtn.style.display = "none";
+    progressContainer.style.display = "block";
+    progressText.style.display = "block";
+    progressBar.style.width = "5%"; // Small jump to show it's alive
+
+    // Audio Context Resume
+    if (typeof THREE !== 'undefined') {
+      const audioCtx = THREE.AudioContext.getContext();
+      if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+    }
+    
+    // Silent play to unlock audio
     audioEl.play().then(() => {
       audioEl.pause();
-      audioEl.currentTime = 0;
-    }).catch(err => console.log("Audio unlock error:", err));
+    }).catch(e => console.log("Audio unlock note:", e));
 
-    if (THREE.AudioContext.getContext().state === 'suspended') {
-      THREE.AudioContext.getContext().resume();
-    }
+    // Start MindAR
+    const startAR = () => {
+      const mindAR = sceneEl.systems["mindar-image-system"];
+      if (mindAR) {
+        console.log("Starting MindAR System");
+        mindAR.start();
+      } else {
+        console.error("MindAR system not found!");
+      }
+    };
 
-    const mindAR = sceneEl.systems["mindar-image-system"];
-    if (mindAR) {
-      mindAR.start();
+    if (sceneEl.hasLoaded) {
+      startAR();
     } else {
-      sceneEl.addEventListener("loaded", () => {
-        sceneEl.systems["mindar-image-system"].start();
-      }, { once: true });
+      sceneEl.addEventListener("loaded", startAR);
     }
   });
 
-  // PROGRESS LISTENER
-  // MindAR emits this event while downloading and parsing targets.mind
+  // Progress Listener
   sceneEl.addEventListener("mindar-image-load-progress", (event) => {
-    const progress = event.detail.progress; // This is a value from 0 to 100
+    const progress = event.detail.progress;
+    console.log("Progress:", progress);
     progressBar.style.width = progress + "%";
-    progressText.innerText = "LOADING TARGETS: " + Math.round(progress) + "%";
+    progressText.innerText = "LOADING DATA: " + Math.round(progress) + "%";
   });
 
+  // Ready Listener
   sceneEl.addEventListener("arReady", () => {
+    console.log("AR Ready");
     document.body.classList.remove('loading-bg');
-    document.body.classList.add('ar-active');
     overlay.style.display = "none";
-    scanHint.style.display = "block";
+    document.getElementById('scan-hint').style.display = "block";
   });
 
-  allTargets.forEach((target) => {
+  // Found/Lost Logic
+  document.querySelectorAll('.mural-target').forEach((target) => {
     target.addEventListener("targetFound", () => {
-      uiControls.style.display = "flex";
-      scanHint.style.display = "none";
+      document.getElementById('ui-controls').style.display = "flex";
+      document.getElementById('scan-hint').style.display = "none";
       audioEl.play().catch(e => console.log("Playback error:", e));
     });
 
     target.addEventListener("targetLost", () => {
-      scanHint.style.display = "block";
+      document.getElementById('scan-hint').style.display = "block";
       audioEl.pause();
     });
   });
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      audioEl.pause();
-    }
+  // Error Handling
+  sceneEl.addEventListener("arError", (event) => {
+    console.error("AR Error:", event);
+    alert("Camera error. Please ensure you are on HTTPS and have granted camera permissions.");
+  });
+</script>
+</body>
+</html>
