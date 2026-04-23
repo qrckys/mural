@@ -39,7 +39,6 @@
 
     #progress-bar { width: 0%; height: 100%; background: #28a745; transition: width 0.3s ease; }
 
-    /* Error message shown in overlay instead of alert() */
     #error-msg {
       display: none; color: #ff5555; font-size: 13px; margin-top: 20px;
       max-width: 280px; line-height: 1.5; letter-spacing: 0.5px;
@@ -47,7 +46,6 @@
 
     #scan-hint {
       position: fixed; top: 30px; width: 100%; text-align: center;
-      /* White text + shadow so it reads on any camera background */
       color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
       font-family: sans-serif; font-size: 12px;
       letter-spacing: 2px; text-transform: uppercase;
@@ -70,7 +68,6 @@
     .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
   </style>
 </head>
-<!-- loading-bg set on body; ar-active swapped in once AR is running -->
 <body class="loading-bg">
 
   <div id="scan-hint">Point camera at artwork</div>
@@ -105,10 +102,8 @@
   vr-mode-ui="enabled: false" 
   device-orientation-permission-ui="enabled: false">
     
-  <!-- timeout gives a 30s fallback if assets are slow to load -->
   <a-assets timeout="30000">
     <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb"></a-asset-item>
-    <!-- preload="none" — audio is fetched on demand, not on page load -->
     <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="none" crossorigin="anonymous" loop playsinline webkit-playsinline></audio>
   </a-assets>
 
@@ -126,20 +121,33 @@
 </a-scene>
 
 <script>
-  const startBtn     = document.getElementById('start-btn');
-  const overlay      = document.getElementById('overlay');
+  const startBtn          = document.getElementById('start-btn');
+  const overlay           = document.getElementById('overlay');
   const progressContainer = document.getElementById('progress-container');
-  const progressBar  = document.getElementById('progress-bar');
-  const progressText = document.getElementById('progress-text');
-  const errorMsg     = document.getElementById('error-msg');
-  const sceneEl      = document.querySelector('a-scene');
-  const audioEl      = document.getElementById('audio-file');
+  const progressBar       = document.getElementById('progress-bar');
+  const progressText      = document.getElementById('progress-text');
+  const errorMsg          = document.getElementById('error-msg');
+  const sceneEl           = document.querySelector('a-scene');
+  const audioEl           = document.getElementById('audio-file');
+
+  let arStarted = false; // guard — dismissOverlay only runs once
+
+  function dismissOverlay() {
+    if (arStarted) return;
+    arStarted = true;
+    console.log("Dismissing overlay");
+    document.body.classList.remove('loading-bg');
+    document.body.classList.add('ar-active');
+    overlay.style.display = "none";
+    document.getElementById('scan-hint').style.display = "block";
+  }
 
   function showError(msg) {
     errorMsg.textContent = msg;
     errorMsg.style.display = 'block';
     progressContainer.style.display = 'none';
     progressText.style.display = 'none';
+    startBtn.style.display = 'block'; // allow retry
   }
 
   startBtn.addEventListener('click', () => {
@@ -151,16 +159,13 @@
     progressBar.style.width = "5%";
     progressBar.setAttribute('aria-valuenow', 5);
 
-    // Unlock audio context — done inside scene loaded so THREE is guaranteed ready
     const unlockAudio = () => {
       try {
         const audioCtx = THREE.AudioContext.getContext();
         if (audioCtx.state === 'suspended') audioCtx.resume();
       } catch (e) {
-        console.log("AudioContext unlock note:", e);
+        console.log("AudioContext note:", e);
       }
-
-      // Silent play/pause to unblock mobile audio autoplay policy
       audioEl.play().then(() => {
         audioEl.pause();
         audioEl.currentTime = 0;
@@ -173,8 +178,18 @@
       if (mindAR) {
         console.log("Starting MindAR");
         mindAR.start();
+
+        // Safety fallback: if arReady never fires (e.g. assets cached,
+        // progress events skipped), force-dismiss overlay after 12s
+        setTimeout(() => {
+          if (!arStarted) {
+            console.warn("arReady timeout — force dismissing overlay");
+            dismissOverlay();
+          }
+        }, 12000);
+
       } else {
-        console.error("MindAR system not found!");
+        console.error("MindAR system not found");
         showError("Could not start AR. Please refresh and try again.");
       }
     };
@@ -186,7 +201,7 @@
     }
   });
 
-  // Progress bar updates
+  // Progress bar
   sceneEl.addEventListener("mindar-image-load-progress", (event) => {
     const progress = event.detail.progress;
     progressBar.style.width = progress + "%";
@@ -194,13 +209,10 @@
     progressText.innerText = "LOADING DATA: " + Math.round(progress) + "%";
   });
 
-  // AR ready — swap body class and reveal scan hint
-  sceneEl.addEventListener("mindar-image-ready", () => {
-    console.log("AR Ready");
-    document.body.classList.remove('loading-bg');
-    document.body.classList.add('ar-active');
-    overlay.style.display = "none";
-    document.getElementById('scan-hint').style.display = "block";
+  // arReady — correct event for MindAR 1.2.5
+  sceneEl.addEventListener("arReady", () => {
+    console.log("arReady fired");
+    dismissOverlay();
   });
 
   // Target found / lost
@@ -208,7 +220,6 @@
     target.addEventListener("targetFound", () => {
       document.getElementById('ui-controls').style.display = "flex";
       document.getElementById('scan-hint').style.display = "none";
-      // Reset to start in case this is a re-find after losing the target
       audioEl.currentTime = 0;
       audioEl.play().catch(e => console.log("Playback error:", e));
     });
@@ -216,11 +227,10 @@
     target.addEventListener("targetLost", () => {
       document.getElementById('scan-hint').style.display = "block";
       audioEl.pause();
-      // currentTime intentionally NOT reset here — resumes from same position on re-find above
     });
   });
 
-  // AR error — styled message instead of alert()
+  // AR error
   sceneEl.addEventListener("arError", (event) => {
     console.error("AR Error:", event);
     overlay.style.display = "flex";
