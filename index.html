@@ -30,6 +30,18 @@
     #start-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
 
+    /* Progress Bar Container */
+    #progress-container {
+      width: 200px; height: 4px; background: #333;
+      margin-top: 20px; border-radius: 2px; display: none; overflow: hidden;
+    }
+
+    /* The actual moving bar */
+    #progress-bar {
+      width: 0%; height: 100%; background: #28a745;
+      transition: width 0.2s ease;
+    }
+
     #scan-hint {
       position: fixed; top: 30px; width: 100%; text-align: center;
       color: #000; font-family: sans-serif; font-size: 12px;
@@ -64,6 +76,11 @@
         <img src="https://qrckys.github.io/mural/ebony.jpg" id="marker-preview">
         <br>
         <button id="start-btn">Enter Experience</button>
+        
+        <div id="progress-container">
+          <div id="progress-bar"></div>
+        </div>
+        <p id="progress-text" style="font-size: 10px; margin-top: 10px; color: #888; display: none; letter-spacing: 1px;">LOADING TARGETS...</p>
     </div>
   </div>
 
@@ -105,19 +122,23 @@
   const sceneEl = document.querySelector('a-scene');
   const audioEl = document.getElementById('audio-file');
   const allTargets = document.querySelectorAll('.mural-target');
+  
+  // Progress Bar Elements
+  const progressContainer = document.getElementById('progress-container');
+  const progressBar = document.getElementById('progress-bar');
+  const progressText = document.getElementById('progress-text');
 
-  // THE INITIAL GESTURE TRIGGER
   startBtn.addEventListener('click', () => {
-    startBtn.disabled = true;
-    startBtn.innerText = "INITIALIZING...";
+    startBtn.style.display = "none"; // Hide button after click
+    progressContainer.style.display = "block"; // Show progress bar
+    progressText.style.display = "block"; // Show loading text
     
-    // Wake up the audio engine immediately
+    // Unlock Audio Context
     audioEl.play().then(() => {
       audioEl.pause();
       audioEl.currentTime = 0;
-    }).catch(err => console.log("Audio prep error:", err));
+    }).catch(err => console.log("Audio unlock error:", err));
 
-    // Resume THREE.js Audio context
     if (THREE.AudioContext.getContext().state === 'suspended') {
       THREE.AudioContext.getContext().resume();
     }
@@ -132,6 +153,14 @@
     }
   });
 
+  // PROGRESS LISTENER
+  // MindAR emits this event while downloading and parsing targets.mind
+  sceneEl.addEventListener("mindar-image-load-progress", (event) => {
+    const progress = event.detail.progress; // This is a value from 0 to 100
+    progressBar.style.width = progress + "%";
+    progressText.innerText = "LOADING TARGETS: " + Math.round(progress) + "%";
+  });
+
   sceneEl.addEventListener("arReady", () => {
     document.body.classList.remove('loading-bg');
     document.body.classList.add('ar-active');
@@ -139,13 +168,11 @@
     scanHint.style.display = "block";
   });
 
-  // TARGET FOUND/LOST LOGIC
   allTargets.forEach((target) => {
     target.addEventListener("targetFound", () => {
-      console.log("Mural Detected!");
       uiControls.style.display = "flex";
       scanHint.style.display = "none";
-      audioEl.play().catch(e => console.log("Playback blocked:", e));
+      audioEl.play().catch(e => console.log("Playback error:", e));
     });
 
     target.addEventListener("targetLost", () => {
@@ -154,12 +181,7 @@
     });
   });
 
-  // Pause if user leaves the tab
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       audioEl.pause();
     }
-  });
-</script>
-</body>
-</html>
