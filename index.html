@@ -14,7 +14,6 @@
     body.ar-active { background: transparent !important; }
     a-scene { background: transparent !important; }
 
-    /* Landing UI */
     #overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #000; color: white; display: flex; flex-direction: column;
@@ -30,15 +29,13 @@
 
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
 
-    /* Progress UI */
     #progress-container {
       width: 200px; height: 4px; background: #333;
       margin-top: 20px; border-radius: 2px; display: none; overflow: hidden;
     }
-    #progress-bar { width: 0%; height: 100%; background: #28a745; transition: width 0.3s ease; }
-    #progress-text { font-size: 10px; margin-top: 10px; color: #888; display: none; letter-spacing: 1px; }
 
-    /* Experience UI */
+    #progress-bar { width: 0%; height: 100%; background: #28a745; transition: width 0.3s ease; }
+
     #scan-hint {
       position: fixed; top: 30px; width: 100%; text-align: center;
       color: #000; font-family: sans-serif; font-size: 12px;
@@ -78,7 +75,7 @@
         <div id="progress-container">
           <div id="progress-bar"></div>
         </div>
-        <p id="progress-text">INITIALIZING...</p>
+        <p id="progress-text" style="font-size: 10px; margin-top: 10px; color: #888; display: none; letter-spacing: 1px;">INITIALIZING...</p>
     </div>
   </div>
 
@@ -88,4 +85,110 @@
   </div>
 
 <a-scene 
-  mindar-image="imageTargetSrc: https://qrckys.github.io/mural/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.0001;
+  mindar-image="imageTargetSrc: https://qrckys.github.io/mural/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.0005;"
+  color-space="sRGB" 
+  renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
+  vr-mode-ui="enabled: false" 
+  device-orientation-permission-ui="enabled: false">
+    
+  <a-assets>
+    <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb"></a-asset-item>
+    <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop playsinline webkit-playsinline></audio>
+  </a-assets>
+
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  <a-light type="ambient" intensity="1.0"></a-light>
+
+  <a-entity mindar-image-target="targetIndex: 0" class="mural-target">
+    <a-gltf-model src="#sculpture" position="0.0 -0.525 0.0" scale="0.048 0.048 0.048" animation-mixer="clip: *; loop: repeat"></a-gltf-model>
+  </a-entity>
+
+  <a-entity mindar-image-target="targetIndex: 1" class="mural-target">
+    <a-gltf-model src="#sculpture" position="0.0 -0.525 0.0" scale="0.048 0.048 0.048" animation-mixer="clip: *; loop: repeat"></a-gltf-model>
+  </a-entity>
+
+</a-scene>
+
+<script>
+  const startBtn = document.getElementById('start-btn');
+  const overlay = document.getElementById('overlay');
+  const progressContainer = document.getElementById('progress-container');
+  const progressBar = document.getElementById('progress-bar');
+  const progressText = document.getElementById('progress-text');
+  const sceneEl = document.querySelector('a-scene');
+  const audioEl = document.getElementById('audio-file');
+
+  startBtn.addEventListener('click', () => {
+    console.log("Button clicked");
+    
+    startBtn.style.display = "none";
+    progressContainer.style.display = "block";
+    progressText.style.display = "block";
+    progressBar.style.width = "5%";
+
+    // Audio context resume
+    if (typeof THREE !== 'undefined') {
+      const audioCtx = THREE.AudioContext.getContext();
+      if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+    }
+    
+    // Silent play to unlock audio on mobile
+    audioEl.play().then(() => {
+      audioEl.pause();
+    }).catch(e => console.log("Audio unlock note:", e));
+
+    // Start MindAR
+    const startAR = () => {
+      const mindAR = sceneEl.systems["mindar-image-system"];
+      if (mindAR) {
+        console.log("Starting MindAR");
+        mindAR.start();
+      } else {
+        console.error("MindAR system not found!");
+      }
+    };
+
+    if (sceneEl.hasLoaded) {
+      startAR();
+    } else {
+      sceneEl.addEventListener("loaded", startAR);
+    }
+  });
+
+  // Progress bar
+  sceneEl.addEventListener("mindar-image-load-progress", (event) => {
+    const progress = event.detail.progress;
+    progressBar.style.width = progress + "%";
+    progressText.innerText = "LOADING DATA: " + Math.round(progress) + "%";
+  });
+
+  // AR ready
+  sceneEl.addEventListener("arReady", () => {
+    console.log("AR Ready");
+    document.body.classList.remove('loading-bg');
+    overlay.style.display = "none";
+    document.getElementById('scan-hint').style.display = "block";
+  });
+
+  // Target found/lost
+  document.querySelectorAll('.mural-target').forEach((target) => {
+    target.addEventListener("targetFound", () => {
+      document.getElementById('ui-controls').style.display = "flex";
+      document.getElementById('scan-hint').style.display = "none";
+      audioEl.play().catch(e => console.log("Playback error:", e));
+    });
+
+    target.addEventListener("targetLost", () => {
+      document.getElementById('scan-hint').style.display = "block";
+      audioEl.pause();
+    });
+  });
+
+  // Error handling
+  sceneEl.addEventListener("arError", (event) => {
+    console.error("AR Error:", event);
+    alert("Camera error. Please ensure you are on HTTPS and have granted camera permissions.");
+  });
+</script>
+</body>
+</html>
