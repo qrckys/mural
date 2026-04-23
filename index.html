@@ -9,17 +9,11 @@
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <style>
-    html, body { 
-      margin: 0; padding: 0; width: 100%; height: 100%; 
-      overflow: hidden; 
-    }
-
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
     body.loading-bg { background: #000 !important; }
     body.ar-active { background: transparent !important; }
-    
     a-scene { background: transparent !important; }
 
-    /* Landing Screen Overlay */
     #overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #000; color: white; display: flex; flex-direction: column;
@@ -28,18 +22,14 @@
     }
     
     #start-btn { 
-      padding: 18px 40px; font-size: 18px; 
-      background: #28a745; color: #fff; 
+      padding: 18px 40px; font-size: 18px; background: #28a745; color: #fff; 
       border: none; border-radius: 4px; cursor: pointer; font-weight: bold; 
-      text-transform: uppercase; letter-spacing: 1px;
-      transition: all 0.3s ease;
+      text-transform: uppercase; letter-spacing: 1px; transition: all 0.3s ease;
     }
 
     #start-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
 
-    /* Scan Hint (Visible in AR mode) */
     #scan-hint {
       position: fixed; top: 30px; width: 100%; text-align: center;
       color: #000; font-family: sans-serif; font-size: 12px;
@@ -47,22 +37,18 @@
       z-index: 1000; display: none; font-weight: bold;
     }
 
-    /* Links UI */
     #ui-controls {
-      position: fixed; bottom: 40px; left: 50%;
-      transform: translateX(-50%); display: none; 
-      gap: 15px; z-index: 1000; width: 90%; justify-content: center;
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); 
+      display: none; gap: 15px; z-index: 1000; width: 90%; justify-content: center;
     }
 
     .black-btn {
-      padding: 15px 25px; background: #000; color: #fff;
-      text-decoration: none; border: 1px solid #444; border-radius: 4px;
-      font-family: sans-serif; font-weight: bold; font-size: 13px;
-      text-transform: uppercase; letter-spacing: 1px; text-align: center;
-      min-width: 120px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      padding: 15px 25px; background: #000; color: #fff; text-decoration: none; 
+      border: 1px solid #444; border-radius: 4px; font-family: sans-serif; 
+      font-weight: bold; font-size: 13px; text-transform: uppercase; 
+      letter-spacing: 1px; text-align: center; min-width: 120px;
     }
 
-    /* Hide standard UI components */
     .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
     .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
   </style>
@@ -74,7 +60,6 @@
   <div id="overlay">
     <h1 style="letter-spacing: 3px; font-weight: 300; margin-bottom: 5px;">EBONY</h1>
     <p style="font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; margin-bottom: 25px; opacity: 0.8;">by Qrcky</p>
-
     <div id="status-container">
         <img src="https://qrckys.github.io/mural/ebony.jpg" id="marker-preview">
         <br>
@@ -96,13 +81,85 @@
     
     <a-assets>
       <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb"></a-asset-item>
-      
-      <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop></audio>
+      <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop playsinline webkit-playsinline></audio>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-light type="ambient" intensity="1.0"></a-light>
 
     <a-entity mindar-image-target="targetIndex: 0" class="mural-target">
-      <a-gltf-model 
-        src="#sculpture
+      <a-gltf-model src="#sculpture" position="0.0 -0.525 0.0" scale="0.048 0.048 0.048" animation-mixer="clip: *; loop: repeat"></a-gltf-model>
+    </a-entity>
+
+    <a-entity mindar-image-target="targetIndex: 1" class="mural-target">
+      <a-gltf-model src="#sculpture" position="0.0 -0.525 0.0" scale="0.048 0.048 0.048" animation-mixer="clip: *; loop: repeat"></a-gltf-model>
+    </a-entity>
+
+</a-scene>
+
+<script>
+  const startBtn = document.getElementById('start-btn');
+  const overlay = document.getElementById('overlay');
+  const uiControls = document.getElementById('ui-controls');
+  const scanHint = document.getElementById('scan-hint');
+  const sceneEl = document.querySelector('a-scene');
+  const audioEl = document.getElementById('audio-file');
+  const allTargets = document.querySelectorAll('.mural-target');
+
+  // THE INITIAL GESTURE TRIGGER
+  startBtn.addEventListener('click', () => {
+    startBtn.disabled = true;
+    startBtn.innerText = "INITIALIZING...";
+    
+    // Wake up the audio engine immediately
+    audioEl.play().then(() => {
+      audioEl.pause();
+      audioEl.currentTime = 0;
+    }).catch(err => console.log("Audio prep error:", err));
+
+    // Resume THREE.js Audio context
+    if (THREE.AudioContext.getContext().state === 'suspended') {
+      THREE.AudioContext.getContext().resume();
+    }
+
+    const mindAR = sceneEl.systems["mindar-image-system"];
+    if (mindAR) {
+      mindAR.start();
+    } else {
+      sceneEl.addEventListener("loaded", () => {
+        sceneEl.systems["mindar-image-system"].start();
+      }, { once: true });
+    }
+  });
+
+  sceneEl.addEventListener("arReady", () => {
+    document.body.classList.remove('loading-bg');
+    document.body.classList.add('ar-active');
+    overlay.style.display = "none";
+    scanHint.style.display = "block";
+  });
+
+  // TARGET FOUND/LOST LOGIC
+  allTargets.forEach((target) => {
+    target.addEventListener("targetFound", () => {
+      console.log("Mural Detected!");
+      uiControls.style.display = "flex";
+      scanHint.style.display = "none";
+      audioEl.play().catch(e => console.log("Playback blocked:", e));
+    });
+
+    target.addEventListener("targetLost", () => {
+      scanHint.style.display = "block";
+      audioEl.pause();
+    });
+  });
+
+  // Pause if user leaves the tab
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      audioEl.pause();
+    }
+  });
+</script>
+</body>
+</html>
