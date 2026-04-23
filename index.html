@@ -26,6 +26,9 @@
       border: none; border-radius: 4px; cursor: pointer; font-weight: bold; 
       text-transform: uppercase; letter-spacing: 1px;
     }
+    #start-btn:focus-visible {
+      outline: 3px solid #28a745; outline-offset: 4px;
+    }
 
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
 
@@ -36,9 +39,17 @@
 
     #progress-bar { width: 0%; height: 100%; background: #28a745; transition: width 0.3s ease; }
 
+    /* Error message shown in overlay instead of alert() */
+    #error-msg {
+      display: none; color: #ff5555; font-size: 13px; margin-top: 20px;
+      max-width: 280px; line-height: 1.5; letter-spacing: 0.5px;
+    }
+
     #scan-hint {
       position: fixed; top: 30px; width: 100%; text-align: center;
-      color: #000; font-family: sans-serif; font-size: 12px;
+      /* White text + shadow so it reads on any camera background */
+      color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      font-family: sans-serif; font-size: 12px;
       letter-spacing: 2px; text-transform: uppercase;
       z-index: 1000; display: none; font-weight: bold;
     }
@@ -59,6 +70,7 @@
     .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
   </style>
 </head>
+<!-- loading-bg set on body; ar-active swapped in once AR is running -->
 <body class="loading-bg">
 
   <div id="scan-hint">Point camera at artwork</div>
@@ -68,14 +80,16 @@
     <p style="font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; margin-bottom: 25px; opacity: 0.8;">by Qrcky</p>
     
     <div id="status-container">
-        <img src="https://qrckys.github.io/mural/ebony.jpg" id="marker-preview">
+        <img src="https://qrckys.github.io/mural/ebony.jpg" id="marker-preview" alt="Target artwork to scan">
         <br>
-        <button id="start-btn">Enter Experience</button>
+        <button id="start-btn" aria-label="Enter the AR experience">Enter Experience</button>
         
         <div id="progress-container">
-          <div id="progress-bar"></div>
+          <div id="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
         </div>
         <p id="progress-text" style="font-size: 10px; margin-top: 10px; color: #888; display: none; letter-spacing: 1px;">INITIALIZING...</p>
+
+        <p id="error-msg"></p>
     </div>
   </div>
 
@@ -91,9 +105,11 @@
   vr-mode-ui="enabled: false" 
   device-orientation-permission-ui="enabled: false">
     
-  <a-assets>
+  <!-- timeout gives a 30s fallback if assets are slow to load -->
+  <a-assets timeout="30000">
     <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb"></a-asset-item>
-    <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop playsinline webkit-playsinline></audio>
+    <!-- preload="none" — audio is fetched on demand, not on page load -->
+    <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="none" crossorigin="anonymous" loop playsinline webkit-playsinline></audio>
   </a-assets>
 
   <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -110,84 +126,105 @@
 </a-scene>
 
 <script>
-  const startBtn = document.getElementById('start-btn');
-  const overlay = document.getElementById('overlay');
+  const startBtn     = document.getElementById('start-btn');
+  const overlay      = document.getElementById('overlay');
   const progressContainer = document.getElementById('progress-container');
-  const progressBar = document.getElementById('progress-bar');
+  const progressBar  = document.getElementById('progress-bar');
   const progressText = document.getElementById('progress-text');
-  const sceneEl = document.querySelector('a-scene');
-  const audioEl = document.getElementById('audio-file');
+  const errorMsg     = document.getElementById('error-msg');
+  const sceneEl      = document.querySelector('a-scene');
+  const audioEl      = document.getElementById('audio-file');
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'block';
+    progressContainer.style.display = 'none';
+    progressText.style.display = 'none';
+  }
 
   startBtn.addEventListener('click', () => {
     console.log("Button clicked");
-    
+
     startBtn.style.display = "none";
     progressContainer.style.display = "block";
     progressText.style.display = "block";
     progressBar.style.width = "5%";
+    progressBar.setAttribute('aria-valuenow', 5);
 
-    // Audio context resume
-    if (typeof THREE !== 'undefined') {
-      const audioCtx = THREE.AudioContext.getContext();
-      if (audioCtx.state === 'suspended') { audioCtx.resume(); }
-    }
-    
-    // Silent play to unlock audio on mobile
-    audioEl.play().then(() => {
-      audioEl.pause();
-    }).catch(e => console.log("Audio unlock note:", e));
+    // Unlock audio context — done inside scene loaded so THREE is guaranteed ready
+    const unlockAudio = () => {
+      try {
+        const audioCtx = THREE.AudioContext.getContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+      } catch (e) {
+        console.log("AudioContext unlock note:", e);
+      }
 
-    // Start MindAR
+      // Silent play/pause to unblock mobile audio autoplay policy
+      audioEl.play().then(() => {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      }).catch(e => console.log("Audio unlock note:", e));
+    };
+
     const startAR = () => {
+      unlockAudio();
       const mindAR = sceneEl.systems["mindar-image-system"];
       if (mindAR) {
         console.log("Starting MindAR");
         mindAR.start();
       } else {
         console.error("MindAR system not found!");
+        showError("Could not start AR. Please refresh and try again.");
       }
     };
 
     if (sceneEl.hasLoaded) {
       startAR();
     } else {
-      sceneEl.addEventListener("loaded", startAR);
+      sceneEl.addEventListener("loaded", startAR, { once: true });
     }
   });
 
-  // Progress bar
+  // Progress bar updates
   sceneEl.addEventListener("mindar-image-load-progress", (event) => {
     const progress = event.detail.progress;
     progressBar.style.width = progress + "%";
+    progressBar.setAttribute('aria-valuenow', Math.round(progress));
     progressText.innerText = "LOADING DATA: " + Math.round(progress) + "%";
   });
 
-  // AR ready
-  sceneEl.addEventListener("arReady", () => {
+  // AR ready — swap body class and reveal scan hint
+  sceneEl.addEventListener("mindar-image-ready", () => {
     console.log("AR Ready");
     document.body.classList.remove('loading-bg');
+    document.body.classList.add('ar-active');
     overlay.style.display = "none";
     document.getElementById('scan-hint').style.display = "block";
   });
 
-  // Target found/lost
+  // Target found / lost
   document.querySelectorAll('.mural-target').forEach((target) => {
     target.addEventListener("targetFound", () => {
       document.getElementById('ui-controls').style.display = "flex";
       document.getElementById('scan-hint').style.display = "none";
+      // Reset to start in case this is a re-find after losing the target
+      audioEl.currentTime = 0;
       audioEl.play().catch(e => console.log("Playback error:", e));
     });
 
     target.addEventListener("targetLost", () => {
       document.getElementById('scan-hint').style.display = "block";
       audioEl.pause();
+      // currentTime intentionally NOT reset here — resumes from same position on re-find above
     });
   });
 
-  // Error handling
+  // AR error — styled message instead of alert()
   sceneEl.addEventListener("arError", (event) => {
     console.error("AR Error:", event);
-    alert("Camera error. Please ensure you are on HTTPS and have granted camera permissions.");
+    overlay.style.display = "flex";
+    showError("Camera error. Please ensure you are on HTTPS and have granted camera permissions.");
   });
 </script>
 </body>
