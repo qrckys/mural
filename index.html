@@ -120,48 +120,60 @@
   </a-scene>
 
   <script>
-    const startBtn        = document.getElementById('start-btn');
-    const overlay         = document.getElementById('overlay');
+    const startBtn          = document.getElementById('start-btn');
+    const overlay           = document.getElementById('overlay');
     const progressContainer = document.getElementById('progress-container');
-    const progressBar     = document.getElementById('progress-bar');
-    const progressText    = document.getElementById('progress-text');
-    const errorMsg        = document.getElementById('error-msg');
-    const sceneEl         = document.querySelector('a-scene');
-    const audioEl         = document.getElementById('audio-file');
-    const scanHint        = document.getElementById('scan-hint');
-    const uiControls      = document.getElementById('ui-controls');
+    const progressBar       = document.getElementById('progress-bar');
+    const progressText      = document.getElementById('progress-text');
+    const errorMsg          = document.getElementById('error-msg');
+    const sceneEl           = document.querySelector('a-scene');
+    const audioEl           = document.getElementById('audio-file');
+    const scanHint          = document.getElementById('scan-hint');
+    const uiControls        = document.getElementById('ui-controls');
 
-    let modelP = 0, mindP = 0;
+    let targetActive = false;
+    let userNavigatedAway = false;
 
-    // --- WEIGHTED PROGRESS ---
-    function updateDisplay() {
-      const total = Math.min(99, (modelP * 0.7) + (mindP * 0.3));
-      progressBar.style.width = total + '%';
+    // --- SIMULATED PROGRESS ---
+    // Real asset/MindAR progress events are unreliable across devices.
+    // Instead we animate smoothly to 99% while loading, then snap to 100%
+    // on arReady. The bar always moves — no more stalling at 70%.
+    let simProgress = 0;
+    let simInterval = null;
 
-      let status = 'DOWNLOADING ASSETS...';
-      if (total > 80) status = 'STARTING CAMERA...';
-      if (total >= 99) status = 'READY';
-
-      progressText.innerText = `${status}  ${Math.round(total)}%`;
+    function startSimProgress() {
+      simInterval = setInterval(() => {
+        // Ease toward 99%: big steps early, tiny steps near the end
+        const remaining = 99 - simProgress;
+        simProgress += remaining * 0.04;
+        renderProgress(simProgress);
+      }, 120);
     }
 
-    THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => {
-      if (url && url.includes('.glb')) {
-        modelP = (loaded / total) * 100;
-        updateDisplay();
-      }
-    };
+    function completeProgress() {
+      clearInterval(simInterval);
+      simProgress = 100;
+      renderProgress(100);
+    }
 
-    sceneEl.addEventListener('mindar-image-load-progress', (e) => {
-      mindP = e.detail.progress;
-      updateDisplay();
-    });
+    function renderProgress(val) {
+      const v = Math.min(100, val);
+      progressBar.style.width = v + '%';
+
+      let status = 'DOWNLOADING ASSETS...';
+      if (v > 60) status = 'LOADING MODEL...';
+      if (v > 85) status = 'STARTING CAMERA...';
+      if (v >= 100) status = 'READY';
+
+      progressText.innerText = `${status}  ${Math.round(v)}%`;
+    }
 
     // --- START AR ---
     startBtn.addEventListener('click', () => {
       startBtn.style.display = 'none';
       progressContainer.style.display = 'block';
       progressText.style.display = 'block';
+      startSimProgress();
 
       function unlockAudioContext() {
         try {
@@ -186,6 +198,7 @@
 
     // --- CAMERA READY ---
     sceneEl.addEventListener('arReady', () => {
+      completeProgress();
       setTimeout(() => {
         document.body.classList.remove('loading-bg');
         document.body.classList.add('ar-active');
@@ -196,7 +209,6 @@
 
     // --- TARGET LOGIC ---
     const muralTarget = document.getElementById('mural-target');
-    let targetActive = false;
 
     muralTarget.addEventListener('targetFound', () => {
       targetActive = true;
@@ -212,27 +224,38 @@
       audioEl.pause();
     });
 
-    // --- FIX 6: AUDIO FOCUS & BUTTON PAUSE ---
-
-    // Explicitly pause audio when ANY UI button is clicked
+    // --- BUTTON NAVIGATION ---
+    // Pause audio AND mark that the user deliberately left.
+    // The flag clears after the page becomes visible again (user returned).
     document.querySelectorAll('.black-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        userNavigatedAway = true;
         audioEl.pause();
       });
     });
 
+    // --- VISIBILITY / FOCUS HANDLERS ---
     function onPageHidden() {
       audioEl.pause();
     }
 
     function onPageVisible() {
-      // Only resume if the phone is still pointing at the artwork
+      if (userNavigatedAway) {
+        // User came back from Instagram / Prints — clear the flag but do NOT
+        // resume audio. They need to re-point at the artwork naturally.
+        userNavigatedAway = false;
+        return;
+      }
+      // Normal app-switch / lock-screen return: resume only if target is live.
       if (targetActive) audioEl.play().catch(() => {});
     }
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) onPageHidden();
-      else onPageVisible();
+      if (document.hidden) {
+        onPageHidden();
+      } else {
+        onPageVisible();
+      }
     });
 
     // Debounced blur/focus for smooth app switching
@@ -248,7 +271,7 @@
     });
 
     // --- ERROR HANDLING ---
-    sceneEl.addEventListener('arError', (e) => {
+    sceneEl.addEventListener('arError', () => {
       showError('Camera access is required.<br>Please use HTTPS and allow camera permissions, then refresh.');
     });
 
