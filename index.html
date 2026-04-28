@@ -3,18 +3,23 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>EBONY AR</title>
-  
+
+  <!-- Preload heavy assets early so browser fetches them in parallel -->
+  <link rel="preload" href="https://qrckys.github.io/mural/ebony.glb" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="https://qrckys.github.io/mural/ebony.mp3" as="fetch" crossorigin="anonymous">
+
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
-    
+
     body.loading-bg { background: #000 !important; }
     body.ar-active  { background: transparent !important; }
     a-scene { background: transparent !important; }
 
+    /* ── OVERLAY ── */
     #overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #000; color: white; display: flex; flex-direction: column;
@@ -48,15 +53,45 @@
       max-width: 280px; line-height: 1.5;
     }
 
-    #scan-hint {
-      position: fixed; top: 30px; width: 100%; text-align: center;
-      color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-      font-family: sans-serif; font-size: 12px;
-      letter-spacing: 2px; text-transform: uppercase;
-      z-index: 1000; display: none; font-weight: bold;
-      pointer-events: none;
+    #retry-btn {
+      display: none; margin-top: 14px; padding: 12px 28px;
+      font-size: 13px; background: #333; color: #fff;
+      border: 1px solid #555; border-radius: 4px; cursor: pointer;
+      font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
     }
 
+    /* ── SCAN RETICLE ── */
+    #scan-reticle {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px; height: 200px;
+      z-index: 1000; display: none; pointer-events: none;
+    }
+    #scan-reticle .corner {
+      position: absolute; width: 28px; height: 28px;
+      border-color: #fff; border-style: solid; opacity: 0.85;
+    }
+    #scan-reticle .tl { top: 0; left: 0;    border-width: 3px 0 0 3px; }
+    #scan-reticle .tr { top: 0; right: 0;   border-width: 3px 3px 0 0; }
+    #scan-reticle .bl { bottom: 0; left: 0;  border-width: 0 0 3px 3px; }
+    #scan-reticle .br { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+
+    @keyframes reticle-pulse {
+      0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+      50%       { opacity: 0.35; transform: translate(-50%, -50%) scale(0.93); }
+    }
+    #scan-reticle.scanning { animation: reticle-pulse 1.8s ease-in-out infinite; }
+
+    /* ── SCAN HINT ── */
+    #scan-hint {
+      position: fixed; bottom: 120px; width: 100%; text-align: center;
+      color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      font-family: sans-serif; font-size: 11px;
+      letter-spacing: 2px; text-transform: uppercase;
+      z-index: 1000; display: none; font-weight: bold; pointer-events: none;
+    }
+
+    /* ── UI BUTTONS ── */
     #ui-controls {
       position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
       display: none; gap: 15px; z-index: 1000; width: 90%; justify-content: center;
@@ -74,6 +109,14 @@
 </head>
 <body class="loading-bg">
 
+  <!-- Animated corner-bracket reticle shown while scanning -->
+  <div id="scan-reticle" class="scanning">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+  </div>
+
   <div id="scan-hint">Point camera at artwork</div>
 
   <div id="overlay">
@@ -90,6 +133,7 @@
       </div>
       <p id="progress-text">Initializing...</p>
       <div id="error-msg"></div>
+      <button id="retry-btn">Try Again</button>
     </div>
   </div>
 
@@ -107,7 +151,8 @@
 
     <a-assets timeout="30000">
       <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb" crossorigin="anonymous"></a-asset-item>
-      <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="none" crossorigin="anonymous" loop></audio>
+      <!-- preload="auto" buffers audio during the loading phase -->
+      <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop></audio>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -121,6 +166,7 @@
 
   <script>
     const startBtn          = document.getElementById('start-btn');
+    const retryBtn          = document.getElementById('retry-btn');
     const overlay           = document.getElementById('overlay');
     const progressContainer = document.getElementById('progress-container');
     const progressBar       = document.getElementById('progress-bar');
@@ -129,158 +175,224 @@
     const sceneEl           = document.querySelector('a-scene');
     const audioEl           = document.getElementById('audio-file');
     const scanHint          = document.getElementById('scan-hint');
+    const scanReticle       = document.getElementById('scan-reticle');
     const uiControls        = document.getElementById('ui-controls');
+    const muralTarget       = document.getElementById('mural-target');
 
-    let targetActive = false;
+    let targetActive      = false;
     let userNavigatedAway = false;
 
-    // --- SIMULATED PROGRESS ---
-    // Real asset/MindAR progress events are unreliable across devices.
-    // Instead we animate smoothly to 99% while loading, then snap to 100%
-    // on arReady. The bar always moves — no more stalling at 70%.
+    // ── AUDIO: single source of truth ──────────────────────────────────────
+    // All play/pause flows through setAudioPlaying(). Volume fades via Web
+    // Audio API so transitions are never abrupt. Falls back gracefully if
+    // Web Audio is unavailable.
+
+    let audioCtx    = null;
+    let gainNode    = null;
+    let fadeRaf     = null;
+    const FADE_MS   = 600;
+
+    function ensureAudioGraph() {
+      if (audioCtx) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = 0;
+        gainNode.connect(audioCtx.destination);
+        audioCtx.createMediaElementSource(audioEl).connect(gainNode);
+      } catch (e) {
+        audioCtx = null; // Web Audio not available — fall back to direct play
+      }
+    }
+
+    function fadeTo(targetVol) {
+      cancelAnimationFrame(fadeRaf);
+      if (!gainNode) {
+        if (targetVol > 0) audioEl.play().catch(() => {});
+        else audioEl.pause();
+        return;
+      }
+      const start    = performance.now();
+      const startVol = gainNode.gain.value;
+      const delta    = targetVol - startVol;
+
+      function step(now) {
+        const t = Math.min(1, (now - start) / FADE_MS);
+        // Ease in-out cubic
+        const ease = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+        gainNode.gain.value = startVol + delta * ease;
+        if (t < 1) {
+          fadeRaf = requestAnimationFrame(step);
+        } else {
+          if (targetVol === 0) audioEl.pause();
+        }
+      }
+
+      if (targetVol > 0 && audioEl.paused) audioEl.play().catch(() => {});
+      fadeRaf = requestAnimationFrame(step);
+    }
+
+    function setAudioPlaying(shouldPlay) {
+      ensureAudioGraph();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      fadeTo(shouldPlay ? 1 : 0);
+    }
+
+    // ── AUDIO UNLOCK on first gesture (critical for iOS) ───────────────────
+    function unlockAudio() {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (Ctx) { const t = new Ctx(); t.resume().then(() => t.close()); }
+        const three = THREE.AudioContext && THREE.AudioContext.getContext();
+        if (three && three.state === 'suspended') three.resume();
+      } catch (e) {}
+    }
+
+    // ── SIMULATED PROGRESS ──────────────────────────────────────────────────
     let simProgress = 0;
     let simInterval = null;
+    let loadTimeout = null;
 
     function startSimProgress() {
       simInterval = setInterval(() => {
-        // Ease toward 99%: big steps early, tiny steps near the end
-        const remaining = 99 - simProgress;
-        simProgress += remaining * 0.04;
+        simProgress += (99 - simProgress) * 0.04;
         renderProgress(simProgress);
       }, 120);
+
+      // 30s hard timeout with retry option
+      loadTimeout = setTimeout(() => {
+        clearInterval(simInterval);
+        showError(
+          'Taking too long to load.<br>Check your connection or camera permissions.',
+          true
+        );
+      }, 30000);
     }
 
     function completeProgress() {
       clearInterval(simInterval);
-      simProgress = 100;
+      clearTimeout(loadTimeout);
       renderProgress(100);
     }
 
     function renderProgress(val) {
       const v = Math.min(100, val);
       progressBar.style.width = v + '%';
-
       let status = 'DOWNLOADING ASSETS...';
       if (v > 60) status = 'LOADING MODEL...';
       if (v > 85) status = 'STARTING CAMERA...';
       if (v >= 100) status = 'READY';
-
       progressText.innerText = `${status}  ${Math.round(v)}%`;
     }
 
-    // --- START AR ---
+    // ── START ───────────────────────────────────────────────────────────────
     startBtn.addEventListener('click', () => {
-      startBtn.style.display = 'none';
+      unlockAudio();
+      startBtn.style.display          = 'none';
       progressContainer.style.display = 'block';
-      progressText.style.display = 'block';
+      progressText.style.display      = 'block';
       startSimProgress();
 
-      function unlockAudioContext() {
-        try {
-          const ctx = THREE.AudioContext.getContext();
-          if (ctx && ctx.state === 'suspended') ctx.resume();
-        } catch (e) { }
-      }
-
       function startAR() {
-        unlockAudioContext();
         const mindAR = sceneEl.systems['mindar-image-system'];
-        if (mindAR) {
-          mindAR.start();
-        } else {
-          showError('AR system failed to initialise. Please refresh.');
-        }
+        if (mindAR) mindAR.start();
+        else showError('AR system failed to initialise. Please refresh.');
       }
 
       if (sceneEl.hasLoaded) startAR();
       else sceneEl.addEventListener('loaded', startAR, { once: true });
     });
 
-    // --- CAMERA READY ---
+    retryBtn.addEventListener('click', () => window.location.reload());
+
+    // ── CAMERA READY ────────────────────────────────────────────────────────
     sceneEl.addEventListener('arReady', () => {
       completeProgress();
       setTimeout(() => {
         document.body.classList.remove('loading-bg');
         document.body.classList.add('ar-active');
-        overlay.style.display = 'none';
-        scanHint.style.display = 'block';
+        overlay.style.display         = 'none';
+        scanHint.style.display        = 'block';
+        scanReticle.style.display     = 'block';
       }, 800);
     });
 
-    // --- TARGET LOGIC ---
-    const muralTarget = document.getElementById('mural-target');
+    // ── TARGET FOUND / LOST ─────────────────────────────────────────────────
+    // A 1.5s grace period on lost prevents audio cutting out on brief
+    // tracking drops caused by hand movement or glare.
+
+    let lostTimer = null;
 
     muralTarget.addEventListener('targetFound', () => {
-      targetActive = true;
-      uiControls.style.display = 'flex';
-      scanHint.style.display = 'none';
-      audioEl.play().catch(() => {});
+      clearTimeout(lostTimer);
+      lostTimer     = null;
+      targetActive  = true;
+
+      scanReticle.style.display = 'none';
+      scanHint.style.display    = 'none';
+      uiControls.style.display  = 'flex';
+
+      if (navigator.vibrate) navigator.vibrate(80); // haptic confirmation
+
+      setAudioPlaying(true);
     });
 
     muralTarget.addEventListener('targetLost', () => {
-      targetActive = false;
-      scanHint.style.display = 'block';
-      uiControls.style.display = 'none';
-      audioEl.pause();
+      lostTimer = setTimeout(() => {
+        targetActive = false;
+        scanReticle.style.display = 'block';
+        scanHint.style.display    = 'block';
+        uiControls.style.display  = 'none';
+        setAudioPlaying(false);
+      }, 1500);
     });
 
-    // --- BUTTON NAVIGATION ---
-    // Pause audio AND mark that the user deliberately left.
-    // The flag clears after the page becomes visible again (user returned).
+    // ── BUTTON NAVIGATION ───────────────────────────────────────────────────
     document.querySelectorAll('.black-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         userNavigatedAway = true;
-        audioEl.pause();
+        setAudioPlaying(false);
       });
     });
 
-    // --- VISIBILITY / FOCUS HANDLERS ---
-    function onPageHidden() {
-      audioEl.pause();
-    }
-
-    function onPageVisible() {
-      if (userNavigatedAway) {
-        // User came back from Instagram / Prints — clear the flag but do NOT
-        // resume audio. They need to re-point at the artwork naturally.
-        userNavigatedAway = false;
-        return;
-      }
-      // Normal app-switch / lock-screen return: resume only if target is live.
-      if (targetActive) audioEl.play().catch(() => {});
-    }
-
+    // ── VISIBILITY (visibilitychange only — no blur/focus duplication) ──────
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
-        onPageHidden();
+        setAudioPlaying(false);
       } else {
-        onPageVisible();
+        if (userNavigatedAway) {
+          userNavigatedAway = false;
+          return; // Intentional navigation — don't auto-resume
+        }
+        if (targetActive) setAudioPlaying(true);
       }
     });
 
-    // Debounced blur/focus for smooth app switching
-    let blurTimer = null;
-    window.addEventListener('blur', () => {
-      blurTimer = setTimeout(onPageHidden, 300);
+    // ── ERROR HANDLING ──────────────────────────────────────────────────────
+    sceneEl.addEventListener('arError', (e) => {
+      const detail = (e.detail || '').toString().toLowerCase();
+      let msg;
+      if (location.protocol !== 'https:') {
+        msg = 'HTTPS is required for camera access.<br>Please open this page over a secure connection.';
+      } else if (detail.includes('permission') || detail.includes('denied')) {
+        msg = 'Camera permission was denied.<br>Allow camera access in your browser settings, then refresh.';
+      } else if (detail.includes('support') || detail.includes('webkit')) {
+        msg = 'Your browser may not support WebAR.<br>Try opening in Chrome or Safari.';
+      } else {
+        msg = 'Could not start the camera.<br>Please refresh and allow camera access.';
+      }
+      showError(msg, true);
     });
 
-    window.addEventListener('focus', () => {
-      clearTimeout(blurTimer);
-      blurTimer = null;
-      if (!document.hidden) onPageVisible();
-    });
-
-    // --- ERROR HANDLING ---
-    sceneEl.addEventListener('arError', () => {
-      showError('Camera access is required.<br>Please use HTTPS and allow camera permissions, then refresh.');
-    });
-
-    function showError(html) {
-      startBtn.style.display = 'none';
+    function showError(html, showRetry = false) {
+      clearInterval(simInterval);
+      clearTimeout(loadTimeout);
+      startBtn.style.display          = 'none';
       progressContainer.style.display = 'none';
-      progressText.style.display = 'none';
-      errorMsg.innerHTML = html;
-      errorMsg.style.display = 'block';
+      progressText.style.display      = 'none';
+      errorMsg.innerHTML              = html;
+      errorMsg.style.display          = 'block';
+      retryBtn.style.display          = showRetry ? 'inline-block' : 'none';
     }
   </script>
 </body>
