@@ -251,17 +251,39 @@
     });
 
     // ----- Pause / resume audio when the user leaves or returns to this tab/app -----
-    // Covers: switching tabs, opening Instagram/Get Prints links, locking the phone screen,
-    // or switching to another app. Audio only resumes if the target was active when they left.
+    // visibilitychange  — covers: tab switch, phone lock screen, app switch to background.
+    // blur/focus        — covers: target="_blank" links (new tab opens, this page stays
+    //                    "visible" but loses window focus — visibilitychange never fires).
+    //
+    // The blur debounce prevents false positives: when a new tab opens the browser
+    // briefly blurs then immediately re-focuses this window internally. A 300 ms guard
+    // lets those transient blurs pass without pausing audio.
+
+    let blurTimer = null;
+
+    function onPageHidden() {
+      audioEl.pause();
+    }
+
+    function onPageVisible() {
+      if (targetActive) audioEl.play().catch(() => {});
+    }
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        // Page is hidden — pause unconditionally.
-        audioEl.pause();
-      } else if (targetActive) {
-        // Page is visible again and the target was in frame — resume.
-        audioEl.play().catch(() => {});
-      }
+      if (document.hidden) onPageHidden();
+      else onPageVisible();
+    });
+
+    window.addEventListener('blur', () => {
+      // Wait a beat before treating this as a real navigation away.
+      blurTimer = setTimeout(onPageHidden, 300);
+    });
+
+    window.addEventListener('focus', () => {
+      // Cancel the pending pause if focus returned quickly (browser-internal juggle).
+      clearTimeout(blurTimer);
+      blurTimer = null;
+      if (!document.hidden) onPageVisible();
     });
 
     // FIX 5: arError now clears the loading UI and shows a readable message
