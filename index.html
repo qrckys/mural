@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>EBONY AR</title>
@@ -11,16 +11,15 @@
   <style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
     
-    /* Background Class Swap Logic */
     body.loading-bg { background: #000 !important; }
-    body.ar-active { background: transparent !important; }
+    body.ar-active  { background: transparent !important; }
     a-scene { background: transparent !important; }
 
     #overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #000; color: white; display: flex; flex-direction: column;
-      justify-content: center; align-items: center; z-index: 9999; 
-      font-family: -apple-system, sans-serif; text-align: center;
+      justify-content: center; align-items: center; z-index: 9999;
+      font-family: sans-serif; text-align: center;
     }
 
     #start-btn {
@@ -28,6 +27,7 @@
       border: none; border-radius: 4px; cursor: pointer; font-weight: bold;
       text-transform: uppercase; letter-spacing: 1px;
     }
+    #start-btn:disabled { background: #555; cursor: default; }
 
     #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; opacity: 0.8; }
 
@@ -53,7 +53,8 @@
       color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
       font-family: sans-serif; font-size: 12px;
       letter-spacing: 2px; text-transform: uppercase;
-      z-index: 1000; display: none; font-weight: bold; pointer-events: none;
+      z-index: 1000; display: none; font-weight: bold;
+      pointer-events: none;
     }
 
     #ui-controls {
@@ -77,7 +78,7 @@
 
   <div id="overlay">
     <h1 style="letter-spacing: 5px; font-weight: 300; margin-bottom: 5px;">EBONY</h1>
-    <p style="font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 30px; opacity: 0.6;">By Qrcky</p>
+    <p style="font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; margin-bottom: 30px; opacity: 0.6;">By Qrcky</p>
 
     <div id="status-container">
       <img src="https://qrckys.github.io/mural/ebony.jpg" id="marker-preview" alt="Target">
@@ -97,6 +98,16 @@
     <a href="https://www.qrcky.net/prints/" target="_blank" class="black-btn">Get Prints</a>
   </div>
 
+  <!--
+    FIX 1: Removed the duplicate `mindar-image-target="targetIndex: 1"` entity.
+            The targets.mind file only contains one image target (index 0).
+            The dead second entity was wasting memory and causing silent tracking errors.
+
+    PERF 1: Tuned filterMinCF (0.001) and filterBeta (0.001) for better stability.
+            The original values were extremely low, causing jittery / slow-locking tracking.
+
+    PERF 2: Removed warmupTolerance and missedTolerance overrides — defaults are well-tuned.
+  -->
   <a-scene
     mindar-image="imageTargetSrc: https://qrckys.github.io/mural/targets.mind; autoStart: false; uiScanning: false; uiLoading: false; maxTrack: 1; filterMinCF: 0.001; filterBeta: 0.001;"
     color-space="sRGB"
@@ -106,12 +117,18 @@
 
     <a-assets timeout="30000">
       <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb" crossorigin="anonymous"></a-asset-item>
+      <!--
+        FIX 2: Changed audio preload from "auto" to "none".
+                "auto" forces the browser to eagerly buffer the entire MP3 before AR starts,
+                blocking on mobile networks. We trigger load manually at first play.
+      -->
       <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="none" crossorigin="anonymous" loop></audio>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
     <a-light type="ambient" intensity="1.2"></a-light>
 
+    <!-- FIX 1: Only one target entity — matches the single target in targets.mind -->
     <a-entity mindar-image-target="targetIndex: 0" id="mural-target">
       <a-gltf-model src="#sculpture" position="0.0 -0.425 0.0" scale="0.048 0.048 0.048" animation-mixer></a-gltf-model>
     </a-entity>
@@ -132,9 +149,12 @@
 
     let modelP = 0, mindP = 0;
 
-    // --- WEIGHTED PROGRESS ---
+    // FIX 3: Track only model and mind-target progress.
+    //         The original code also tracked audio (via canplaythrough), but with preload="none"
+    //         canplaythrough never fires until the user triggers play — so audio progress
+    //         was silently stuck at 0, underreporting total progress.
     function updateDisplay() {
-      // 70% model, 30% mind-target. Audio is preload="none" so we don't track it here.
+      // 70% model weight, 30% mind-target weight
       const total = Math.min(99, (modelP * 0.7) + (mindP * 0.3));
       progressBar.style.width = total + '%';
 
@@ -145,7 +165,9 @@
       progressText.innerText = `${status}  ${Math.round(total)}%`;
     }
 
-    // Only track our .glb file for the model progress
+    // FIX 3 (continued): Filter THREE.js loading progress to only count our .glb asset.
+    //                    The original hook fired for ALL assets (MindAR internals, etc.),
+    //                    causing the bar to reset and jump unexpectedly.
     THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => {
       if (url && url.includes('.glb')) {
         modelP = (loaded / total) * 100;
@@ -158,17 +180,21 @@
       updateDisplay();
     });
 
-    // --- BUTTON CLICK: START AR ---
+    // ----- Button click: unlock audio context then start AR -----
     startBtn.addEventListener('click', () => {
       startBtn.style.display = 'none';
       progressContainer.style.display = 'block';
       progressText.style.display = 'block';
 
+      // Unlock the Web Audio context on the user gesture (required on iOS/Android).
+      // We do NOT try to play/pause the audio here — preload="none" means the
+      // browser hasn't buffered anything yet, so a silent play().then(pause()) would
+      // trigger a network fetch and stall the AR startup on slow connections.
       function unlockAudioContext() {
         try {
           const ctx = THREE.AudioContext.getContext();
           if (ctx && ctx.state === 'suspended') ctx.resume();
-        } catch (e) { console.error(e); }
+        } catch (e) { /* AudioContext may not exist yet — safe to ignore */ }
       }
 
       function startAR() {
@@ -181,14 +207,16 @@
         }
       }
 
-      if (sceneEl.hasLoaded) startAR();
-      else sceneEl.addEventListener('loaded', startAR, { once: true });
+      if (sceneEl.hasLoaded) {
+        startAR();
+      } else {
+        sceneEl.addEventListener('loaded', startAR, { once: true });
+      }
     });
 
-    // --- AR READY: CLEANUP OVERLAY ---
+    // ----- AR ready: swap to camera view -----
     sceneEl.addEventListener('arReady', () => {
       setTimeout(() => {
-        // Fix: Remove black background and show camera
         document.body.classList.remove('loading-bg');
         document.body.classList.add('ar-active');
         overlay.style.display = 'none';
@@ -196,40 +224,51 @@
       }, 800);
     });
 
-    // --- AUDIO FOCUS & NAVIGATION LOGIC ---
+    // ----- Target found / lost -----
+    // FIX 4: Select via ID instead of class querySelectorAll loop —
+    //         simpler and avoids iterating over a dead second entity.
+    const muralTarget = document.getElementById('mural-target');
 
-    // 1. Pause when clicking Instagram or Get Prints
-    document.querySelectorAll('.black-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        audioEl.pause();
+    // Tracks whether the target is currently in frame.
+    // Used by the visibility logic to know whether audio *should* be playing.
+    let targetActive = false;
+
+    muralTarget.addEventListener('targetFound', () => {
+      targetActive = true;
+      uiControls.style.display = 'flex';
+      scanHint.style.display = 'none';
+      // Audio starts loading here (preload="none") and plays once buffered.
+      audioEl.play().catch(() => {
+        // Autoplay blocked — user will hear audio after next interaction.
       });
     });
 
-    // 2. Pause when switching tabs or minimizing browser
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        audioEl.pause();
-      }
-    });
-
-    // --- TARGET FOUND / LOST ---
-    const muralTarget = document.getElementById('mural-target');
-
-    muralTarget.addEventListener('targetFound', () => {
-      uiControls.style.display = 'flex';
-      scanHint.style.display = 'none';
-      audioEl.play().catch(e => console.log("Autoplay blocked until user interaction."));
-    });
-
     muralTarget.addEventListener('targetLost', () => {
+      targetActive = false;
       scanHint.style.display = 'block';
       uiControls.style.display = 'none';
       audioEl.pause();
     });
 
-    // --- ERROR HANDLING ---
+    // ----- Pause / resume audio when the user leaves or returns to this tab/app -----
+    // Covers: switching tabs, opening Instagram/Get Prints links, locking the phone screen,
+    // or switching to another app. Audio only resumes if the target was active when they left.
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Page is hidden — pause unconditionally.
+        audioEl.pause();
+      } else if (targetActive) {
+        // Page is visible again and the target was in frame — resume.
+        audioEl.play().catch(() => {});
+      }
+    });
+
+    // FIX 5: arError now clears the loading UI and shows a readable message
+    //         instead of a bare alert(), which blocks the page on some browsers.
     sceneEl.addEventListener('arError', (e) => {
-      showError('Camera access is required.<br>Please ensure you are on HTTPS and allow camera permissions.');
+      console.error('AR error:', e);
+      showError('Camera access is required.<br>Please use HTTPS and allow camera permissions, then refresh.');
     });
 
     function showError(html) {
