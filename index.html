@@ -1,92 +1,83 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>EBONY AR</title>
+  <title>EBONY AR - High Performance Loader</title>
   
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <style>
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
-    body.loading-bg { background: #000 !important; }
-    body.ar-active { background: transparent !important; }
-    a-scene { background: transparent !important; }
-
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+    
+    /* Loading Overlay */
     #overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #000; color: white; display: flex; flex-direction: column;
-      justify-content: center; align-items: center; z-index: 9999; font-family: sans-serif;
+      justify-content: center; align-items: center; z-index: 9999; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       text-align: center;
     }
     
     #start-btn { 
-      padding: 18px 40px; font-size: 18px; background: #28a745; color: #fff; 
-      border: none; border-radius: 4px; cursor: pointer; font-weight: bold; 
-      text-transform: uppercase; letter-spacing: 1px;
-    }
-    #start-btn:focus-visible {
-      outline: 3px solid #28a745; outline-offset: 4px;
+      padding: 18px 40px; font-size: 16px; background: #28a745; color: #fff; 
+      border: none; border-radius: 6px; cursor: pointer; font-weight: bold; 
+      text-transform: uppercase; letter-spacing: 2px;
     }
 
-    #marker-preview { width: 150px; border: 1px solid #444; margin-bottom: 25px; }
+    #marker-preview { width: 160px; border: 1px solid #333; margin-bottom: 30px; border-radius: 4px; }
 
+    /* Progress Bar Styles */
     #progress-container {
-      width: 200px; height: 4px; background: #333;
-      margin-top: 20px; border-radius: 2px; display: none; overflow: hidden;
+      width: 220px; height: 3px; background: #222;
+      margin-top: 25px; border-radius: 10px; display: none; overflow: hidden;
     }
+    #progress-bar { width: 0%; height: 100%; background: #28a745; transition: width 0.4s ease; }
+    #progress-text { font-size: 10px; margin-top: 12px; color: #777; display: none; letter-spacing: 1.5px; text-transform: uppercase; }
 
-    #progress-bar { width: 0%; height: 100%; background: #28a745; transition: width 0.3s ease; }
-
-    #error-msg {
-      display: none; color: #ff5555; font-size: 13px; margin-top: 20px;
-      max-width: 280px; line-height: 1.5; letter-spacing: 0.5px;
-    }
-
+    /* In-Experience UI */
     #scan-hint {
-      position: fixed; top: 30px; width: 100%; text-align: center;
-      color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-      font-family: sans-serif; font-size: 12px;
-      letter-spacing: 2px; text-transform: uppercase;
+      position: fixed; top: 40px; width: 100%; text-align: center;
+      color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+      font-family: sans-serif; font-size: 11px;
+      letter-spacing: 3px; text-transform: uppercase;
       z-index: 1000; display: none; font-weight: bold;
     }
 
     #ui-controls {
       position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); 
-      display: none; gap: 15px; z-index: 1000; width: 90%; justify-content: center;
+      display: none; gap: 12px; z-index: 1000; width: 90%; justify-content: center;
     }
 
     .black-btn {
-      padding: 15px 25px; background: #000; color: #fff; text-decoration: none; 
+      padding: 14px 20px; background: rgba(0,0,0,0.8); color: #fff; text-decoration: none; 
       border: 1px solid #444; border-radius: 4px; font-family: sans-serif; 
-      font-weight: bold; font-size: 13px; text-transform: uppercase; 
-      letter-spacing: 1px; text-align: center; min-width: 120px;
+      font-weight: bold; font-size: 10px; text-transform: uppercase; 
+      letter-spacing: 1px; text-align: center; min-width: 110px; backdrop-filter: blur(5px);
     }
 
+    /* Hide A-Frame default VR buttons */
     .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
-    .mindar-ui-scanning, .mindar-ui-loading { display: none !important; }
   </style>
 </head>
-<body class="loading-bg">
+<body>
 
-  <div id="scan-hint">Point camera at artwork</div>
+  <div id="scan-hint">Scan Artwork to Begin</div>
 
   <div id="overlay">
-    <h1 style="letter-spacing: 3px; font-weight: 300; margin-bottom: 5px;">EBONY</h1>
-    <p style="font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; margin-bottom: 25px; opacity: 0.8;">by Qrcky</p>
+    <h1 style="letter-spacing: 6px; font-weight: 200; margin-bottom: 8px;">EBONY</h1>
+    <p style="font-size: 9px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 35px; color: #666;">By Qrcky</p>
     
     <div id="status-container">
-        <img src="https://qrckys.github.io/mural/ebony.jpg" id="marker-preview" alt="Target artwork to scan">
+        <img src="https://qrckys.github.io/mural/ebony.jpg" id="marker-preview" alt="Target Reference">
         <br>
-        <button id="start-btn" aria-label="Enter the AR experience">Enter Experience</button>
+        <button id="start-btn">Enter Experience</button>
         
         <div id="progress-container">
-          <div id="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          <div id="progress-bar"></div>
         </div>
-        <p id="progress-text" style="font-size: 10px; margin-top: 10px; color: #888; display: none; letter-spacing: 1px;">INITIALIZING...</p>
-
-        <p id="error-msg"></p>
+        <p id="progress-text">Initializing...</p>
     </div>
   </div>
 
@@ -103,123 +94,118 @@
   device-orientation-permission-ui="enabled: false">
     
   <a-assets timeout="30000">
-    <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb"></a-asset-item>
-    <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="none" crossorigin="anonymous" loop playsinline webkit-playsinline></audio>
+    <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb" crossorigin="anonymous"></a-asset-item>
+    <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop></audio>
   </a-assets>
 
   <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-  <a-light type="ambient" intensity="1.0"></a-light>
+  <a-light type="ambient" intensity="1.5"></a-light>
+  <a-light type="directional" position="1 2 1" intensity="0.8"></a-light>
 
   <a-entity mindar-image-target="targetIndex: 0" class="mural-target">
-    <a-gltf-model src="#sculpture" position="0.0 -0.425 0.0" scale="0.048 0.048 0.048" animation-mixer="clip: *; loop: repeat"></a-gltf-model>
+    <a-gltf-model src="#sculpture" position="0.0 -0.425 0.0" scale="0.048 0.048 0.048" animation-mixer></a-gltf-model>
   </a-entity>
 
   <a-entity mindar-image-target="targetIndex: 1" class="mural-target">
-    <a-gltf-model src="#sculpture" position="0.0 -0.425 0.0" scale="0.048 0.048 0.048" animation-mixer="clip: *; loop: repeat"></a-gltf-model>
+    <a-gltf-model src="#sculpture" position="0.0 -0.425 0.0" scale="0.048 0.048 0.048" animation-mixer></a-gltf-model>
   </a-entity>
 
 </a-scene>
 
 <script>
-  const startBtn          = document.getElementById('start-btn');
-  const overlay           = document.getElementById('overlay');
+  // --- CONFIGURATION ---
+  const startBtn = document.getElementById('start-btn');
   const progressContainer = document.getElementById('progress-container');
-  const progressBar       = document.getElementById('progress-bar');
-  const progressText      = document.getElementById('progress-text');
-  const errorMsg          = document.getElementById('error-msg');
-  const sceneEl           = document.querySelector('a-scene');
-  const audioEl           = document.getElementById('audio-file');
+  const progressBar = document.getElementById('progress-bar');
+  const progressText = document.getElementById('progress-text');
+  const overlay = document.getElementById('overlay');
+  const scanHint = document.getElementById('scan-hint');
+  const sceneEl = document.querySelector('a-scene');
+  const audioEl = document.getElementById('audio-file');
 
-  let arStarted = false; 
+  let modelP = 0, mindP = 0, audioP = 0;
+  let arStarted = false;
 
-  function dismissOverlay() {
-    if (arStarted) return;
-    arStarted = true;
-    console.log("Dismissing overlay");
-    document.body.classList.remove('loading-bg');
-    document.body.classList.add('ar-active');
-    overlay.style.display = "none";
-    document.getElementById('scan-hint').style.display = "block";
+  // --- WEIGHTED PROGRESS CALCULATION ---
+  function updateDisplay() {
+    // Math: Model (70%), Targets (20%), Audio (10%)
+    const total = (modelP * 0.7) + (mindP * 0.2) + (audioP * 0.1);
+    progressBar.style.width = total + "%";
+    
+    let status = "Loading Experience Assets...";
+    if (total > 80) status = "Waking up Sensors...";
+    if (total >= 99) status = "Ready to Begin";
+    
+    progressText.innerText = `${status} ${Math.round(total)}%`;
   }
 
-  function showError(msg) {
-    errorMsg.textContent = msg;
-    errorMsg.style.display = 'block';
-    progressContainer.style.display = 'none';
-    progressText.style.display = 'none';
-    startBtn.style.display = 'block'; 
-  }
+  // A. Track Model (.glb)
+  THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => {
+    modelP = (loaded / total) * 100;
+    updateDisplay();
+  };
 
+  // B. Track MindAR Targets (.mind)
+  sceneEl.addEventListener("mindar-image-load-progress", (e) => {
+    mindP = e.detail.progress;
+    updateDisplay();
+  });
+
+  // C. Track Audio (.mp3)
+  audioEl.addEventListener('canplaythrough', () => {
+    audioP = 100;
+    updateDisplay();
+  }, { once: true });
+
+  // --- INTERACTION LOGIC ---
   startBtn.addEventListener('click', () => {
     startBtn.style.display = "none";
     progressContainer.style.display = "block";
     progressText.style.display = "block";
-    progressBar.style.width = "5%";
-    progressBar.setAttribute('aria-valuenow', 5);
-
+    
+    // Unlock Audio Context for mobile browsers
     const unlockAudio = () => {
-      try {
-        const audioCtx = THREE.AudioContext.getContext();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-      } catch (e) {
-        console.log("AudioContext note:", e);
-      }
-      // Warm up the audio so it's ready for later
-      audioEl.play().then(() => {
-        audioEl.pause();
-      }).catch(e => console.log("Audio unlock note:", e));
+      const ctx = THREE.AudioContext.getContext();
+      if (ctx.state === 'suspended') ctx.resume();
+      audioEl.play().then(() => audioEl.pause());
     };
 
     const startAR = () => {
       unlockAudio();
       const mindAR = sceneEl.systems["mindar-image-system"];
-      if (mindAR) {
-        mindAR.start();
-        setTimeout(() => {
-          if (!arStarted) dismissOverlay();
-        }, 12000);
-      } else {
-        showError("Could not start AR. Please refresh and try again.");
-      }
+      if (mindAR) mindAR.start();
     };
 
-    if (sceneEl.hasLoaded) {
-      startAR();
-    } else {
-      sceneEl.addEventListener("loaded", startAR, { once: true });
-    }
+    if (sceneEl.hasLoaded) startAR();
+    else sceneEl.addEventListener("loaded", startAR, { once: true });
   });
 
-  sceneEl.addEventListener("mindar-image-load-progress", (event) => {
-    const progress = event.detail.progress;
-    progressBar.style.width = progress + "%";
-    progressBar.setAttribute('aria-valuenow', Math.round(progress));
-    progressText.innerText = "LOADING DATA: " + Math.round(progress) + "%";
-  });
-
+  // Fired when the AR engine is fully initialized
   sceneEl.addEventListener("arReady", () => {
-    dismissOverlay();
+    arStarted = true;
+    setTimeout(() => {
+        overlay.style.display = "none";
+        scanHint.style.display = "block";
+    }, 1000);
   });
 
-  // Target found / lost logic
+  // Target Recognition Events
   document.querySelectorAll('.mural-target').forEach((target) => {
     target.addEventListener("targetFound", () => {
       document.getElementById('ui-controls').style.display = "flex";
-      document.getElementById('scan-hint').style.display = "none";
-      
-      // Removed currentTime = 0 to prevent restarting the audio
-      audioEl.play().catch(e => console.log("Playback error:", e));
+      scanHint.style.display = "none";
+      audioEl.play().catch(e => console.log("Audio play error:", e));
     });
 
     target.addEventListener("targetLost", () => {
-      document.getElementById('scan-hint').style.display = "block";
+      scanHint.style.display = "block";
       audioEl.pause();
     });
   });
 
-  sceneEl.addEventListener("arError", (event) => {
-    overlay.style.display = "flex";
-    showError("Camera error. Please ensure you are on HTTPS and have granted camera permissions.");
+  // Error Handling
+  sceneEl.addEventListener("arError", (e) => {
+    alert("Camera Access Required. Please ensure you are using HTTPS.");
   });
 </script>
 </body>
