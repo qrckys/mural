@@ -60,6 +60,16 @@
       font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
     }
 
+    /* ── BATTERY WARNING ── */
+    #battery-warn {
+      display: none; position: fixed; top: 16px; right: 16px;
+      background: rgba(0,0,0,0.75); color: #ffcc00;
+      font-family: sans-serif; font-size: 10px; letter-spacing: 1px;
+      text-transform: uppercase; padding: 6px 10px;
+      border: 1px solid #ffcc00; border-radius: 3px;
+      z-index: 2000; pointer-events: none;
+    }
+
     /* ── SCAN RETICLE ── */
     #scan-reticle {
       position: fixed; top: 50%; left: 50%;
@@ -69,18 +79,29 @@
     }
     #scan-reticle .corner {
       position: absolute; width: 28px; height: 28px;
-      border-color: #fff; border-style: solid; opacity: 0.85;
+      border-color: #fff; border-style: solid;
+      transition: top 0.35s ease, left 0.35s ease,
+                  right 0.35s ease, bottom 0.35s ease,
+                  opacity 0.35s ease;
     }
-    #scan-reticle .tl { top: 0; left: 0;    border-width: 3px 0 0 3px; }
-    #scan-reticle .tr { top: 0; right: 0;   border-width: 3px 3px 0 0; }
-    #scan-reticle .bl { bottom: 0; left: 0;  border-width: 0 0 3px 3px; }
-    #scan-reticle .br { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+    /* Scanning state — corners at the edges */
+    #scan-reticle .tl { top: 0;    left: 0;   border-width: 3px 0 0 3px; }
+    #scan-reticle .tr { top: 0;    right: 0;  border-width: 3px 3px 0 0; }
+    #scan-reticle .bl { bottom: 0; left: 0;   border-width: 0 0 3px 3px; }
+    #scan-reticle .br { bottom: 0; right: 0;  border-width: 0 3px 3px 0; }
+
+    /* Lock state — corners snap inward and fade out */
+    #scan-reticle.locked .tl { top: 36px;    left: 36px;   opacity: 0; }
+    #scan-reticle.locked .tr { top: 36px;    right: 36px;  opacity: 0; }
+    #scan-reticle.locked .bl { bottom: 36px; left: 36px;   opacity: 0; }
+    #scan-reticle.locked .br { bottom: 36px; right: 36px;  opacity: 0; }
 
     @keyframes reticle-pulse {
-      0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+      0%, 100% { opacity: 1;    transform: translate(-50%, -50%) scale(1); }
       50%       { opacity: 0.35; transform: translate(-50%, -50%) scale(0.93); }
     }
     #scan-reticle.scanning { animation: reticle-pulse 1.8s ease-in-out infinite; }
+    #scan-reticle.locked   { animation: none; }
 
     /* ── SCAN HINT ── */
     #scan-hint {
@@ -108,6 +129,8 @@
   </style>
 </head>
 <body class="loading-bg">
+
+  <div id="battery-warn">&#9889; Low battery — audio paused</div>
 
   <!-- Animated corner-bracket reticle shown while scanning -->
   <div id="scan-reticle" class="scanning">
@@ -138,8 +161,8 @@
   </div>
 
   <div id="ui-controls">
-    <a href="https://www.instagram.com/qrcky/" target="_blank" class="black-btn">Instagram</a>
-    <a href="https://www.qrcky.net/prints/" target="_blank" class="black-btn">Get Prints</a>
+    <a href="https://www.instagram.com/qrcky/" target="_blank" class="black-btn" data-track="instagram">Instagram</a>
+    <a href="https://www.qrcky.net/prints/" target="_blank" class="black-btn" data-track="prints">Get Prints</a>
   </div>
 
   <a-scene
@@ -151,7 +174,6 @@
 
     <a-assets timeout="30000">
       <a-asset-item id="sculpture" src="https://qrckys.github.io/mural/ebony.glb" crossorigin="anonymous"></a-asset-item>
-      <!-- preload="auto" buffers audio during the loading phase -->
       <audio id="audio-file" src="https://qrckys.github.io/mural/ebony.mp3" preload="auto" crossorigin="anonymous" loop></audio>
     </a-assets>
 
@@ -159,12 +181,38 @@
     <a-light type="ambient" intensity="1.2"></a-light>
 
     <a-entity mindar-image-target="targetIndex: 0" id="mural-target">
-      <a-gltf-model src="#sculpture" position="0.0 -0.425 0.0" scale="0.048 0.048 0.048" animation-mixer></a-gltf-model>
+      <!-- Wrapped in a fade entity so we can animate opacity independently -->
+      <a-entity id="model-wrapper" visible="false">
+        <a-gltf-model id="sculpture-model" src="#sculpture" position="0.0 -0.425 0.0" scale="0.048 0.048 0.048" animation-mixer></a-gltf-model>
+      </a-entity>
     </a-entity>
 
   </a-scene>
 
   <script>
+    // ── ANALYTICS BEACON ────────────────────────────────────────────────────
+    // Lightweight zero-dependency event tracker using navigator.sendBeacon.
+    // Replace ANALYTICS_ENDPOINT with your own collector URL (e.g. a
+    // Cloudflare Worker, Plausible custom events, or a simple logging endpoint).
+    // Events fire-and-forget — they won't block or error the AR experience.
+    const ANALYTICS_ENDPOINT = 'https://qrckys.github.io/mural/beacon'; // ← replace
+    const SESSION_ID = Math.random().toString(36).slice(2, 10);
+
+    function beacon(event, data = {}) {
+      if (!navigator.sendBeacon) return;
+      try {
+        const payload = JSON.stringify({
+          event,
+          session: SESSION_ID,
+          ts: Date.now(),
+          ua: navigator.userAgent.slice(0, 80),
+          ...data
+        });
+        navigator.sendBeacon(ANALYTICS_ENDPOINT, payload);
+      } catch (e) {}
+    }
+
+    // ── DOM REFS ────────────────────────────────────────────────────────────
     const startBtn          = document.getElementById('start-btn');
     const retryBtn          = document.getElementById('retry-btn');
     const overlay           = document.getElementById('overlay');
@@ -172,25 +220,51 @@
     const progressBar       = document.getElementById('progress-bar');
     const progressText      = document.getElementById('progress-text');
     const errorMsg          = document.getElementById('error-msg');
+    const batteryWarn       = document.getElementById('battery-warn');
     const sceneEl           = document.querySelector('a-scene');
     const audioEl           = document.getElementById('audio-file');
     const scanHint          = document.getElementById('scan-hint');
     const scanReticle       = document.getElementById('scan-reticle');
     const uiControls        = document.getElementById('ui-controls');
     const muralTarget       = document.getElementById('mural-target');
+    const modelWrapper      = document.getElementById('model-wrapper');
 
-    let targetActive      = false;
-    let userNavigatedAway = false;
+    let targetActive       = false;
+    let userNavigatedAway  = false;
+    let lowBattery         = false;
+    let targetFoundTime    = null; // for dwell-time analytics
+
+    // ── SERVICE WORKER (offline cache) ─────────────────────────────────────
+    // The SW file (ebony-sw.js) must be served from the same origin.
+    // It caches the GLB, MP3, and .mind file after the first visit so the
+    // experience loads instantly with no internet connection.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./ebony-sw.js').catch(() => {});
+    }
+
+    // ── BATTERY DETECTION ──────────────────────────────────────────────────
+    // If the device is below 15% battery, suppress audio autoplay and show
+    // a small warning. The experience still works — audio just won't start.
+    async function checkBattery() {
+      try {
+        const batt = await navigator.getBattery();
+        function evaluate() {
+          lowBattery = !batt.charging && batt.level < 0.15;
+          batteryWarn.style.display = lowBattery ? 'block' : 'none';
+          if (lowBattery) setAudioPlaying(false);
+        }
+        evaluate();
+        batt.addEventListener('levelchange',  evaluate);
+        batt.addEventListener('chargingchange', evaluate);
+      } catch (e) {}
+    }
+    checkBattery();
 
     // ── AUDIO: single source of truth ──────────────────────────────────────
-    // All play/pause flows through setAudioPlaying(). Volume fades via Web
-    // Audio API so transitions are never abrupt. Falls back gracefully if
-    // Web Audio is unavailable.
-
-    let audioCtx    = null;
-    let gainNode    = null;
-    let fadeRaf     = null;
-    const FADE_MS   = 600;
+    let audioCtx  = null;
+    let gainNode  = null;
+    let fadeRaf   = null;
+    const FADE_MS = 600;
 
     function ensureAudioGraph() {
       if (audioCtx) return;
@@ -200,9 +274,7 @@
         gainNode.gain.value = 0;
         gainNode.connect(audioCtx.destination);
         audioCtx.createMediaElementSource(audioEl).connect(gainNode);
-      } catch (e) {
-        audioCtx = null; // Web Audio not available — fall back to direct play
-      }
+      } catch (e) { audioCtx = null; }
     }
 
     function fadeTo(targetVol) {
@@ -217,15 +289,11 @@
       const delta    = targetVol - startVol;
 
       function step(now) {
-        const t = Math.min(1, (now - start) / FADE_MS);
-        // Ease in-out cubic
+        const t    = Math.min(1, (now - start) / FADE_MS);
         const ease = t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
         gainNode.gain.value = startVol + delta * ease;
-        if (t < 1) {
-          fadeRaf = requestAnimationFrame(step);
-        } else {
-          if (targetVol === 0) audioEl.pause();
-        }
+        if (t < 1) { fadeRaf = requestAnimationFrame(step); }
+        else if (targetVol === 0) { audioEl.pause(); }
       }
 
       if (targetVol > 0 && audioEl.paused) audioEl.play().catch(() => {});
@@ -233,12 +301,12 @@
     }
 
     function setAudioPlaying(shouldPlay) {
+      if (shouldPlay && lowBattery) return; // respect battery warning
       ensureAudioGraph();
       if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
       fadeTo(shouldPlay ? 1 : 0);
     }
 
-    // ── AUDIO UNLOCK on first gesture (critical for iOS) ───────────────────
     function unlockAudio() {
       try {
         const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -246,6 +314,71 @@
         const three = THREE.AudioContext && THREE.AudioContext.getContext();
         if (three && three.state === 'suspended') three.resume();
       } catch (e) {}
+    }
+
+    // ── MODEL FADE-IN ───────────────────────────────────────────────────────
+    // A-Frame doesn't expose CSS opacity on entities, so we animate the
+    // material opacity of every mesh inside the GLB via Three.js directly.
+
+    function setModelOpacity(opacity) {
+      const el = document.getElementById('sculpture-model');
+      if (!el || !el.object3D) return;
+      el.object3D.traverse(node => {
+        if (node.isMesh && node.material) {
+          const mats = Array.isArray(node.material) ? node.material : [node.material];
+          mats.forEach(m => {
+            m.transparent = true;
+            m.opacity = opacity;
+          });
+        }
+      });
+    }
+
+    function fadeModelIn(durationMs = 400) {
+      modelWrapper.setAttribute('visible', true);
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / durationMs);
+        const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        setModelOpacity(ease);
+        if (t < 1) requestAnimationFrame(step);
+      }
+      setModelOpacity(0);
+      requestAnimationFrame(step);
+    }
+
+    function fadeModelOut(durationMs = 250) {
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / durationMs);
+        setModelOpacity(1 - t);
+        if (t < 1) { requestAnimationFrame(step); }
+        else { modelWrapper.setAttribute('visible', false); }
+      }
+      requestAnimationFrame(step);
+    }
+
+    // ── RETICLE LOCK ANIMATION ──────────────────────────────────────────────
+    // reticleLock() accepts an onComplete callback so the reticle hides at
+    // EXACTLY the same moment fadeModelIn begins — no loose timer, no gap.
+
+    function reticleLock(onComplete) {
+      scanReticle.classList.remove('scanning');
+      scanReticle.classList.add('locked');
+      setTimeout(() => {
+        scanReticle.style.display = 'none';
+        if (onComplete) onComplete();
+      }, 360);
+    }
+
+    function reticleReset() {
+      // Full reset + reflow so the pulse animation always restarts from
+      // frame 0 — prevents the locked state bleeding into the next scan.
+      scanReticle.style.display = 'none';
+      scanReticle.classList.remove('locked', 'scanning');
+      void scanReticle.offsetWidth; // force reflow
+      scanReticle.classList.add('scanning');
+      scanReticle.style.display = 'block';
     }
 
     // ── SIMULATED PROGRESS ──────────────────────────────────────────────────
@@ -259,13 +392,9 @@
         renderProgress(simProgress);
       }, 120);
 
-      // 30s hard timeout with retry option
       loadTimeout = setTimeout(() => {
         clearInterval(simInterval);
-        showError(
-          'Taking too long to load.<br>Check your connection or camera permissions.',
-          true
-        );
+        showError('Taking too long to load.<br>Check your connection or camera permissions.', true);
       }, 30000);
     }
 
@@ -288,6 +417,7 @@
     // ── START ───────────────────────────────────────────────────────────────
     startBtn.addEventListener('click', () => {
       unlockAudio();
+      beacon('session_start');
       startBtn.style.display          = 'none';
       progressContainer.style.display = 'block';
       progressText.style.display      = 'block';
@@ -303,46 +433,58 @@
       else sceneEl.addEventListener('loaded', startAR, { once: true });
     });
 
-    retryBtn.addEventListener('click', () => window.location.reload());
+    retryBtn.addEventListener('click', () => {
+      beacon('retry');
+      window.location.reload();
+    });
 
     // ── CAMERA READY ────────────────────────────────────────────────────────
     sceneEl.addEventListener('arReady', () => {
+      beacon('ar_ready');
       completeProgress();
       setTimeout(() => {
         document.body.classList.remove('loading-bg');
         document.body.classList.add('ar-active');
-        overlay.style.display         = 'none';
-        scanHint.style.display        = 'block';
-        scanReticle.style.display     = 'block';
+        overlay.style.display = 'none';
+        scanHint.style.display = 'block';
+        reticleReset();
       }, 800);
     });
 
     // ── TARGET FOUND / LOST ─────────────────────────────────────────────────
-    // A 1.5s grace period on lost prevents audio cutting out on brief
-    // tracking drops caused by hand movement or glare.
-
     let lostTimer = null;
 
     muralTarget.addEventListener('targetFound', () => {
       clearTimeout(lostTimer);
-      lostTimer     = null;
-      targetActive  = true;
+      lostTimer        = null;
+      targetActive     = true;
+      targetFoundTime  = Date.now();
 
-      scanReticle.style.display = 'none';
-      scanHint.style.display    = 'none';
-      uiControls.style.display  = 'flex';
+      scanHint.style.display   = 'none';
+      uiControls.style.display = 'flex';
 
-      if (navigator.vibrate) navigator.vibrate(80); // haptic confirmation
+      if (navigator.vibrate) navigator.vibrate(80);
 
       setAudioPlaying(true);
+      beacon('target_found');
+
+      // Reticle lock plays first; fadeModelIn fires in its callback so the
+      // model only appears the instant the reticle finishes hiding.
+      reticleLock(() => fadeModelIn(400));
     });
 
     muralTarget.addEventListener('targetLost', () => {
       lostTimer = setTimeout(() => {
-        targetActive = false;
-        scanReticle.style.display = 'block';
-        scanHint.style.display    = 'block';
-        uiControls.style.display  = 'none';
+        const dwell = targetFoundTime ? Math.round((Date.now() - targetFoundTime) / 1000) : 0;
+        beacon('target_lost', { dwell_seconds: dwell });
+        targetActive    = false;
+        targetFoundTime = null;
+
+        reticleReset();
+        scanHint.style.display   = 'block';
+        uiControls.style.display = 'none';
+
+        fadeModelOut(250);
         setAudioPlaying(false);
       }, 1500);
     });
@@ -350,20 +492,18 @@
     // ── BUTTON NAVIGATION ───────────────────────────────────────────────────
     document.querySelectorAll('.black-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        beacon('button_click', { label: btn.dataset.track || btn.textContent.trim() });
         userNavigatedAway = true;
         setAudioPlaying(false);
       });
     });
 
-    // ── VISIBILITY (visibilitychange only — no blur/focus duplication) ──────
+    // ── VISIBILITY ──────────────────────────────────────────────────────────
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         setAudioPlaying(false);
       } else {
-        if (userNavigatedAway) {
-          userNavigatedAway = false;
-          return; // Intentional navigation — don't auto-resume
-        }
+        if (userNavigatedAway) { userNavigatedAway = false; return; }
         if (targetActive) setAudioPlaying(true);
       }
     });
@@ -381,6 +521,7 @@
       } else {
         msg = 'Could not start the camera.<br>Please refresh and allow camera access.';
       }
+      beacon('ar_error', { detail: detail.slice(0, 80) });
       showError(msg, true);
     });
 
