@@ -233,20 +233,20 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Boosted ambient for overall brightness -->
-    <a-light type="ambient" color="#ffffff" intensity="3.0"></a-light>
+    <!-- Ambient for overall brightness -->
+    <a-light type="ambient" color="#ffffff" intensity="1.8"></a-light>
 
     <!-- Main directional light from front-above -->
-    <a-light type="directional" color="#ffffff" intensity="2.5" position="0 2 2"></a-light>
+    <a-light type="directional" color="#ffffff" intensity="1.2" position="0 2 2"></a-light>
 
     <!-- Fill light from left -->
-    <a-light type="directional" color="#e8eeff" intensity="1.5" position="-2 1 1"></a-light>
+    <a-light type="directional" color="#e8eeff" intensity="0.7" position="-2 1 1"></a-light>
 
     <!-- Fill light from right -->
-    <a-light type="directional" color="#fff5e8" intensity="1.5" position="2 1 1"></a-light>
+    <a-light type="directional" color="#fff5e8" intensity="0.7" position="2 1 1"></a-light>
 
     <!-- Rim light from behind for depth -->
-    <a-light type="directional" color="#ffffff" intensity="1.0" position="0 1 -2"></a-light>
+    <a-light type="directional" color="#ffffff" intensity="0.4" position="0 1 -2"></a-light>
 
 
     <!-- TARGET 0 -->
@@ -263,7 +263,7 @@
         animation="property: rotation; to: 0 0 0; loop: true; dur: 50000; easing: linear">
       </a-gltf-model>
       <!-- Point light close to the model for extra pop -->
-      <a-light type="point" color="#ffffff" intensity="2.0" distance="3" position="0 0.5 0.5"></a-light>
+      <a-light type="point" color="#ffffff" intensity="0.8" distance="3" position="0 0.5 0.5"></a-light>
     </a-entity>
 
 
@@ -281,7 +281,7 @@
         animation="property: rotation; to: 0 0 0; loop: true; dur: 50000; easing: linear">
       </a-gltf-model>
       <!-- Point light close to the model for extra pop -->
-      <a-light type="point" color="#ffffff" intensity="2.0" distance="3" position="0 0.5 0.5"></a-light>
+      <a-light type="point" color="#ffffff" intensity="0.8" distance="3" position="0 0.5 0.5"></a-light>
     </a-entity>
 
 
